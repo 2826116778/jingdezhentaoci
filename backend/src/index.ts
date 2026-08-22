@@ -24,6 +24,34 @@ import adminRoutes from './routes/admin';
 import { startPaymentCronJobs } from './jobs/paymentWatcher';
 import { UPLOAD_URL_PREFIX } from './config/upload';
 import { runSeed } from './seed/seedData';
+import mongoose from 'mongoose';
+
+/**
+ * 如果没有本地 MongoDB（沙盒/Docker 容器环境常见），尝试启动 mongodb-memory-server
+ * （进程内 ephemeral 实例，用完即丢，适合演示）。
+ */
+async function tryStartMemoryMongo(): Promise<string | null> {
+  const envFlag = process.env.USE_MEMORY_MONGO;
+  if (envFlag && String(envFlag).toLowerCase() !== 'true') return null;
+  try {
+    // @ts-ignore: 可选依赖，动态导入
+    const mod = await import('mongodb-memory-server');
+    const MongoMemoryServer = mod.MongoMemoryServer || mod.default?.MongoMemoryServer;
+    if (!MongoMemoryServer) return null;
+    console.log('[MongoDB] 未检测到本地 mongod → 启动 Memory Server（演示用，数据重启后丢失）…');
+    const mongod = await MongoMemoryServer.create({
+      instance: { dbName: 'luxeceramics' },
+    });
+    const uri = mongod.getUri();
+    console.log(`[MongoDB] Memory Server started at ${uri}`);
+    return uri;
+  } catch (e) {
+    if (envFlag === 'true') {
+      console.warn('[MongoDB] USE_MEMORY_MONGO=true 但启动失败：', (e as Error).message);
+    }
+    return null;
+  }
+}
 
 async function bootstrap() {
   const app = express();
@@ -82,8 +110,20 @@ async function bootstrap() {
   // 全局错误
   app.use(errorHandler);
 
-  // 连接 DB
-  await connectDB();
+  // 连接 DB：优先内存 MongoDB（适合演示/没装 MongoDB 的容器环境）
+  const memoryUri = await tryStartMemoryMongo();
+  let finalMongoUri = env.MONGODB_URI;
+  if (memoryUri) {
+    (env as any).MONGODB_URI = memoryUri;
+    finalMongoUri = memoryUri;
+  }
+  // 临时断开已失败的连接（如之前被静态 require 触发过）
+  try { await mongoose.disconnect(); } catch { /* ignore */ }
+  try {
+    await connectDB(finalMongoUri);
+  } catch (dbErr: any) {
+    console.warn('[Bootstrap] ⚠️  MongoDB 连接失败（' + (dbErr?.message || dbErr) + '）。前端静态页面仍可访问，但登录/询盘等 DB 操作会报错。');
+  }
 
   // 首次播种（幂等）
   if (String(env.RUN_SEED_ON_BOOT).toLowerCase() === 'true') {

@@ -348,7 +348,7 @@ const cases = [
   },
 ];
 
-async function main() {
+async function main(skipExit = false) {
   await connectDB();
   console.log('[Seed] 正在写入产品 / 案例 / 管理员 ...');
 
@@ -381,7 +381,7 @@ async function main() {
   console.log(`  ℹ️ 现有询盘 ${inq} 条 / 订单 ${ord} 条（保留，未清空）`);
 
   console.log('[Seed] ✅ 全部完成。可 Ctrl+C 退出。');
-  process.exit(0);
+  if (!skipExit) process.exit(0);
 }
 
 if (require.main === module) {
