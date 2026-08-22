@@ -18,7 +18,7 @@ const router = Router();
 router.get('/cases', async (req, res, next) => {
   try {
     const { category, limit } = req.query;
-    const q: any = {};
+    const q: any = { isPublished: true };
     if (category && category !== 'all') q.category = category;
     const docs = await CaseModel.find(q)
       .limit(limit ? Math.min(100, Number(limit)) : 100)
@@ -30,7 +30,7 @@ router.get('/cases', async (req, res, next) => {
 
 router.get('/cases/featured', async (_req, res, next) => {
   try {
-    const docs = await CaseModel.find({ featured: true })
+    const docs = await CaseModel.find({ featured: true, isPublished: true })
       .limit(4).sort({ sortOrder: 1, year: -1 }).lean();
     return success(res, docs);
   } catch (e) { next(e); }
@@ -42,6 +42,7 @@ router.get('/cases/:id', async (req, res, next) => {
     if (!Types.ObjectId.isValid(id)) return fail(res, '无效 ID', 404);
     const c = await CaseModel.findById(id).lean();
     if (!c) return fail(res, '案例不存在', 404);
+    if (!c.isPublished) return fail(res, '案例不存在或未发布', 404);
     return success(res, c);
   } catch (e) { next(e); }
 });

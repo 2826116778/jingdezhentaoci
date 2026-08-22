@@ -19,6 +19,8 @@ const INIT: Form = {
   images: [], detailImages: [],
   moq: 100, priceMin: 10, priceMax: 100,
   isStock: true, isCustom: false, isPublished: true,
+  featured: false,
+  oemOptions: [],
   sort: 0,
 };
 
@@ -84,16 +86,20 @@ const AdminProducts: React.FC = () => {
   const submit = async () => {
     if (!form.sku || !form.nameEn) { showToast({ type: 'error', text: 'SKU & English name required' }); return; }
     if (form.images!.length === 0) { showToast({ type: 'error', text: 'At least 1 image' }); return; }
+    if (!form.isPublished && !form.featured /* 允许独立 */) { /* noop */ }
     setSaving(true);
     try {
       if (form._id) {
         const updated = await Admin.updateProduct(form._id, form as any);
         setList(list.map(p => p._id === updated._id ? updated : p));
-        showToast({ type: 'success', text: t('admin.common.update_ok') });
+        showToast({ type: 'success', text: `${t('admin.common.update_ok')} → 已同步前台 (Published=${updated.isPublished ? 'Yes' : 'Draft'})` });
       } else {
         const created = await Admin.createProduct(form as any);
         setList([created, ...list]);
-        showToast({ type: 'success', text: t('admin.common.create_ok') });
+        showToast({
+          type: 'success',
+          text: (created.isPublished ? '✅ 已上线前台' : '📋 已保存为草稿（Draft）') + `：${created.sku}`,
+        });
       }
       setOpen(false);
     } catch (e: any) { showToast({ type: 'error', text: e.message || String(e) }); }
@@ -178,10 +184,11 @@ const AdminProducts: React.FC = () => {
                   <td className="px-5 py-3 serif-heading text-[15px] gold-text">${p.priceMin}-{p.priceMax}</td>
                   <td className="px-5 py-3 text-ceramic-graphite">{p.moq}</td>
                   <td className="px-5 py-3">
-                    <span className="inline-flex items-center gap-1 text-[12px]">
+                    <span className="inline-flex items-center gap-1 text-[12px] flex-wrap">
                       {p.isPublished
                         ? <span className="badge bg-emerald-500/10 text-emerald-700"><Check size={11} /> Live</span>
                         : <span className="badge bg-zinc-200 text-zinc-700">Draft</span>}
+                      {p.featured && <span className="badge bg-amber-500/15 text-amber-700">★ Featured</span>}
                     </span>
                   </td>
                   <td className="px-5 py-3">
@@ -236,15 +243,18 @@ const AdminProducts: React.FC = () => {
               <div><label className="label mb-1.5">Price Min ($)</label><input type="number" className="input" value={form.priceMin} onChange={e => setF('priceMin', +e.target.value)} /></div>
               <div><label className="label mb-1.5">Price Max ($)</label><input type="number" className="input" value={form.priceMax} onChange={e => setF('priceMax', +e.target.value)} /></div>
               <div><label className="label mb-1.5">Sort (小前大后)</label><input type="number" className="input" value={form.sort || 0} onChange={e => setF('sort', +e.target.value)} /></div>
-              <div className="flex items-end gap-4 pb-2">
+              <div className="flex items-end gap-4 pb-2 flex-wrap">
                 <button type="button" className="btn-gold-outline !py-2.5" onClick={() => toggleF('isPublished')}>
                   {form.isPublished ? <ToggleRight size={16} /> : <ToggleLeft size={16} />} {form.isPublished ? 'Published' : 'Draft'}
                 </button>
                 <button type="button" className="btn-gold-outline !py-2.5" onClick={() => toggleF('isStock')}>
-                  {form.isStock ? <Check size={12} /> : null} Stock
+                  {form.isStock ? <Check size={12} /> : null} Stock (现货)
                 </button>
                 <button type="button" className="btn-gold-outline !py-2.5" onClick={() => toggleF('isCustom')}>
-                  {form.isCustom ? <Check size={12} /> : null} OEM
+                  {form.isCustom ? <Check size={12} /> : null} OEM (可定制)
+                </button>
+                <button type="button" className="btn-gold-outline !py-2.5" onClick={() => toggleF('featured')}>
+                  {form.featured ? <Check size={12} /> : null} Featured (首页推荐)
                 </button>
               </div>
 

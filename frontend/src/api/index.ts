@@ -162,15 +162,12 @@ export const Admin = {
       headers: { Authorization: `Bearer ${Auth.getSavedToken()}` },
     }).then(r => r.data as any),
 
-  // 图片上传（后台）
+  // 图片上传（后台）— 走统一拦截器解包（client() baseURL = /api），返回的 data 是 { url, size, filename, originalName }
   uploadImage: (file: File): Promise<string> => {
     const fd = new FormData();
     fd.append('file', file);
-    return axios.post<any, { url: string }>('/api/upload', fd, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${Auth.getSavedToken()}`,
-      },
+    return client().post<any, { url: string; size: number; filename: string }>('/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.url);
   },
 };

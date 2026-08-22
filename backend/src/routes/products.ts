@@ -27,6 +27,8 @@ router.get('/products', async (req, res, next) => {
     } = req.query as Record<string, any>;
 
     const q: FilterQuery<IProduct> = {};
+    // 前台公开接口：只展示已发布的产品
+    q.isPublished = true;
     if (category) q.category = { $in: Array.isArray(category) ? category : [category] };
     if (material) q.material = { $in: Array.isArray(material) ? material : [material] };
     if (isCustom === '1' || isCustom === 'true') q.isCustom = true;
@@ -70,7 +72,7 @@ router.get('/products', async (req, res, next) => {
 // 推荐
 router.get('/products/featured', async (_req, res, next) => {
   try {
-    const list = await Product.find({ featured: true }).sort({ sortOrder: 1, createdAt: -1 }).limit(8).lean();
+    const list = await Product.find({ featured: true, isPublished: true }).sort({ sortOrder: 1, createdAt: -1 }).limit(8).lean();
     return success(res, list);
   } catch (e) { next(e); }
 });
@@ -82,8 +84,10 @@ router.get('/products/:id', async (req, res, next) => {
     if (!Types.ObjectId.isValid(id)) return fail(res, '无效的产品 ID', 404, 404);
     const p = await Product.findById(id).lean();
     if (!p) return fail(res, '产品不存在', 404, 404);
+    // 未发布的产品：前台接口默认不展示；如果需要预览，请通过后台管理页面编辑
+    if (!p.isPublished) return fail(res, '产品不存在或未发布', 404, 404);
     // 相关产品（相同 category 排除自己，最多 6 条）
-    const related = await Product.find({ category: p.category, _id: { $ne: p._id } })
+    const related = await Product.find({ category: p.category, _id: { $ne: p._id }, isPublished: true })
       .limit(6).sort({ featured: -1, createdAt: -1 }).lean();
     return success(res, { product: p, related });
   } catch (e) { next(e); }
