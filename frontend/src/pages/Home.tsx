@@ -11,12 +11,10 @@ import { Case, Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { pickBilingual } from '../utils';
 
-const PIC = (seed: string, w = 1800, h = 1000) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`;
-
 const HERO_BG = [
-  PIC('hero-luxe-ceramic-1', 2000, 1200),
-  PIC('hero-luxe-ceramic-2', 2000, 1200),
-  PIC('hero-luxe-ceramic-3', 2000, 1200),
+  '/images/hero-tableware-gold.jpg',
+  '/images/hero-vase-artisan.jpg',
+  '/images/hero-middle-east-platter.jpg',
 ];
 
 const FACT_STATS = [
@@ -134,9 +132,9 @@ const Home: React.FC = () => {
           </div>
           <div className="relative">
             <div className="grid grid-cols-2 gap-4">
-              <img src={PIC('luxe-about-1', 900, 1200)} alt="Master artisan hand-throwing porcelain" loading="lazy" className="w-full h-[360px] md:h-[520px] object-cover gold-card" />
+              <img src="/images/about-artisan-handmade.jpg" alt="Master artisan hand-throwing porcelain" loading="lazy" className="w-full h-[360px] md:h-[520px] object-cover gold-card" />
               <div className="flex flex-col gap-4">
-                <img src={PIC('luxe-about-2', 900, 700)} alt="Glaze mixing" loading="lazy" className="w-full h-[250px] object-cover gold-card" />
+                <img src="/images/about-glaze-color.jpg" alt="Glaze mixing" loading="lazy" className="w-full h-[250px] object-cover gold-card" />
                 <div className="gold-card p-7 flex-1 flex flex-col justify-center">
                   <Award className="text-ceramic-gold-matte mb-4" size={30} />
                   <div className="serif-heading text-[22px] mb-2">72 Steps</div>

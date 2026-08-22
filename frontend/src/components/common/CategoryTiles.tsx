@@ -8,15 +8,13 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 
 const CATS = [
-  { key: 'tableware',    pic: 'ceramic-category-tableware-01', titleKey: 'footer.p_tableware',    sub: 'Fine Tableware' },
-  { key: 'vase',         pic: 'ceramic-category-vase-01',      titleKey: 'footer.p_vase',         sub: 'Art Vases' },
-  { key: 'art-sculpture',pic: 'ceramic-category-sculpt-01',    titleKey: 'footer.p_sculpture',    sub: 'Art Sculptures' },
-  { key: 'hotel-ware',   pic: 'ceramic-category-hotel-01',     titleKey: 'footer.p_hotelware',    sub: 'Hotel Collections' },
-  { key: 'tiles',        pic: 'ceramic-category-tiles-01',     titleKey: 'footer.p_tiles',        sub: 'Ceramic Tiles' },
-  { key: 'oem-sample',   pic: 'ceramic-category-oem-01',       titleKey: 'footer.p_oem',          sub: 'OEM Customization' },
+  { key: 'tableware',    pic: '/images/cat-tableware.jpg', titleKey: 'footer.p_tableware',    sub: 'Fine Tableware' },
+  { key: 'vase',         pic: '/images/cat-vase.jpg',      titleKey: 'footer.p_vase',         sub: 'Art Vases' },
+  { key: 'art-sculpture',pic: '/images/cat-sculpture.jpg', titleKey: 'footer.p_sculpture',    sub: 'Art Sculptures' },
+  { key: 'hotel-ware',   pic: '/images/cat-hotelware.jpg', titleKey: 'footer.p_hotelware',    sub: 'Hotel Collections' },
+  { key: 'tiles',        pic: '/images/cat-tiles.jpg',     titleKey: 'footer.p_tiles',        sub: 'Ceramic Tiles' },
+  { key: 'oem-sample',   pic: '/images/cat-oem.jpg',       titleKey: 'footer.p_oem',          sub: 'OEM Customization' },
 ];
-
-const PIC = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/900/700`;
 
 export const CategoryTiles: React.FC = () => {
   const { t } = useTranslation();
@@ -29,7 +27,7 @@ export const CategoryTiles: React.FC = () => {
           className={`group relative aspect-[4/3] overflow-hidden bg-ceramic-pearl gold-card ${idx === 5 ? 'md:col-span-3 lg:col-span-1' : ''}`}
         >
           <img
-            src={PIC(c.pic)}
+            src={c.pic}
             alt={t(c.titleKey)}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-[1500ms] ease-out group-hover:scale-110"

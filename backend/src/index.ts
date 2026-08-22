@@ -105,6 +105,20 @@ async function bootstrap() {
   // ===== 托管前端 dist（SPA，同源部署）必须放在全局 404 之前 =====
   const frontDist = path.resolve(process.cwd(), env.FRONTEND_DIST_PATH);
   const frontDistValid = fs.existsSync(frontDist) && fs.existsSync(path.join(frontDist, 'index.html'));
+
+  // `/images` 额外托管前端 public/images 下的真实陶瓷产品/分类/主视觉图
+  // （public/images 不经过 vite 打包复制，但 SPA 又需要直接访问它们）
+  const publicImagesDirCandidates = [
+    path.resolve(process.cwd(), '../frontend/public/images'),
+    path.resolve(process.cwd(), '../../frontend/public/images'),
+    path.resolve(process.cwd(), 'src/assets/images'),
+  ];
+  const publicImagesDir = publicImagesDirCandidates.find(d => fs.existsSync(d));
+  if (publicImagesDir) {
+    console.log(`[Bootstrap] 托管额外 /images 目录 → ${publicImagesDir}`);
+    app.use('/images', express.static(publicImagesDir, { maxAge: '7d' }));
+  }
+
   if (frontDistValid) {
     console.log(`[Bootstrap] 托管前端静态目录：${frontDist}`);
     app.use(express.static(frontDist, { maxAge: '1d', index: false }));
