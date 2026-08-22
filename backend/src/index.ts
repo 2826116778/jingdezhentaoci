@@ -102,8 +102,34 @@ async function bootstrap() {
   app.use(prefix, uploadRoutes);
   app.use(prefix, adminRoutes);
 
-  // 404
+  // ===== 托管前端 dist（SPA，同源部署）必须放在全局 404 之前 =====
+  const frontDist = path.resolve(process.cwd(), env.FRONTEND_DIST_PATH);
+  const frontDistValid = fs.existsSync(frontDist) && fs.existsSync(path.join(frontDist, 'index.html'));
+  if (frontDistValid) {
+    console.log(`[Bootstrap] 托管前端静态目录：${frontDist}`);
+    app.use(express.static(frontDist, { maxAge: '1d', index: false }));
+    // SPA fallback：除了 /healthz、/api/*、/uploads/* 以外，所有 GET 都返回 index.html
+    app.get('*', (req, res, next) => {
+      const p = req.path;
+      if (p.startsWith(env.API_PREFIX) || p.startsWith(UPLOAD_URL_PREFIX) || p === '/healthz') {
+        return next();
+      }
+      res.sendFile(path.join(frontDist, 'index.html'));
+    });
+  } else {
+    console.warn(`[Bootstrap] 前端 dist 不存在（${frontDist}），跳过 SPA 托管。如果需要同源部署请 build frontend。`);
+  }
+
+  // 全局 404：
+  // - /api/*  /uploads/*  /healthz 命中不到，返回 JSON 404（原行为）
+  // - 其他路径：如果启用了 SPA 托管，应该已经被上面的 app.get('*') 消费掉了。
+  //            此处做双重保护：GET/HEAD 非 API 路径就回 index.html；其他方法或前缀仍返回 JSON。
   app.use((req, res) => {
+    const p = req.path;
+    const isApiLike = p.startsWith(env.API_PREFIX) || p.startsWith(UPLOAD_URL_PREFIX) || p === '/healthz';
+    if (!isApiLike && frontDistValid && (req.method === 'GET' || req.method === 'HEAD')) {
+      return res.sendFile(path.join(frontDist, 'index.html'));
+    }
     res.status(404).json({ code: 404, message: `Route not found: ${req.method} ${req.path}`, data: null });
   });
 
@@ -137,23 +163,6 @@ async function bootstrap() {
 
   // 启动支付 cron
   startPaymentCronJobs();
-
-  // ===== 托管前端 dist（SPA，同源部署）=====
-  const frontDist = path.resolve(process.cwd(), env.FRONTEND_DIST_PATH);
-  if (fs.existsSync(frontDist) && fs.existsSync(path.join(frontDist, 'index.html'))) {
-    console.log(`[Bootstrap] 托管前端静态目录：${frontDist}`);
-    app.use(express.static(frontDist, { maxAge: '1d', index: false }));
-    // SPA fallback：除了 /healthz、/api/*、/uploads/* 以外，都返回 index.html
-    app.get('*', (req, res, next) => {
-      const p = req.path;
-      if (p.startsWith(env.API_PREFIX) || p.startsWith(UPLOAD_URL_PREFIX) || p === '/healthz') {
-        return next();
-      }
-      res.sendFile(path.join(frontDist, 'index.html'));
-    });
-  } else {
-    console.warn(`[Bootstrap] 前端 dist 不存在（${frontDist}），跳过 SPA 托管。如果需要同源部署请 build frontend。`);
-  }
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`\n🚀 LuxeCeramics Backend running`);
