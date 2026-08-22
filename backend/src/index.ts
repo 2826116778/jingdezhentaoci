@@ -23,6 +23,7 @@ import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
 import { startPaymentCronJobs } from './jobs/paymentWatcher';
 import { UPLOAD_URL_PREFIX } from './config/upload';
+import { runSeed } from './seed/seedData';
 
 async function bootstrap() {
   const app = express();
@@ -84,8 +85,35 @@ async function bootstrap() {
   // 连接 DB
   await connectDB();
 
+  // 首次播种（幂等）
+  if (String(env.RUN_SEED_ON_BOOT).toLowerCase() === 'true') {
+    try {
+      console.log('[Bootstrap] RUN_SEED_ON_BOOT=true → 运行 seeds…');
+      await (runSeed as any)(true);
+    } catch (e: any) {
+      console.warn('[Bootstrap] seed 执行失败（可能已 seed 过）：', e?.message || e);
+    }
+  }
+
   // 启动支付 cron
   startPaymentCronJobs();
+
+  // ===== 托管前端 dist（SPA，同源部署）=====
+  const frontDist = path.resolve(process.cwd(), env.FRONTEND_DIST_PATH);
+  if (fs.existsSync(frontDist) && fs.existsSync(path.join(frontDist, 'index.html'))) {
+    console.log(`[Bootstrap] 托管前端静态目录：${frontDist}`);
+    app.use(express.static(frontDist, { maxAge: '1d', index: false }));
+    // SPA fallback：除了 /healthz、/api/*、/uploads/* 以外，都返回 index.html
+    app.get('*', (req, res, next) => {
+      const p = req.path;
+      if (p.startsWith(env.API_PREFIX) || p.startsWith(UPLOAD_URL_PREFIX) || p === '/healthz') {
+        return next();
+      }
+      res.sendFile(path.join(frontDist, 'index.html'));
+    });
+  } else {
+    console.warn(`[Bootstrap] 前端 dist 不存在（${frontDist}），跳过 SPA 托管。如果需要同源部署请 build frontend。`);
+  }
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`\n🚀 LuxeCeramics Backend running`);

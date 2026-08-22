@@ -136,6 +136,7 @@ export const Admin = {
   // Auth
   login: Auth.login,
   me: Auth.me,
+  logout: Auth.clear,
 
   // Dashboard
   dashboard: () => get<DashboardSummary>('/admin/dashboard'),

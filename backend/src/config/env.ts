@@ -55,6 +55,9 @@ export const env = {
 
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
+  RUN_SEED_ON_BOOT: process.env.RUN_SEED_ON_BOOT || 'true',
+  FRONTEND_DIST_PATH: process.env.FRONTEND_DIST_PATH || '../frontend/dist',
+
   // ---- 计算属性 ----
   get usdtContract(): string {
     return this.TRON_NETWORK === 'mainnet' ? this.USDT_CONTRACT_MAINNET : this.USDT_CONTRACT_NILE;

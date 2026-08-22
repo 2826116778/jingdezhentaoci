@@ -384,4 +384,8 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(e => { console.error('[Seed] 失败 ❌', e); process.exit(1); });
+if (require.main === module) {
+  main().catch(e => { console.error('[Seed] 失败 ❌', e); process.exit(1); });
+}
+
+export { main as runSeed };
