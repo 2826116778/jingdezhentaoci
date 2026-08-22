@@ -4,6 +4,22 @@
 > 目标市场：中东迪拜（英语/阿拉伯语双语）
 > 业务模式：B2B 询盘批发为主 + 少量 B2C 零售 + 工程定制 OEM
 > 交付日期：开发中，预计 1 轮完成
+> 版本：v1.1（含 2026-08-22 重要支付链路变更：真实 TRC20-USDT 链上校验，替换原 demo 模拟逻辑）
+
+---
+
+### 🔴 v1.1 重要变更确认（优先级高于 PRD 旧 6.4 节）
+本版本对 USDT-TRC20 支付链路做了以下升级（用户指令 8 条），其他 PRD 内容全部保持不变：
+1. ✅ **删除**原「任意 txHash 直接标记 paid」的 demo 逻辑
+2. ✅ 引入 **真实 TronGrid API** 做链上交易校验（默认 Nile 测试网，可切换主网）
+3. ✅ Order 模型新增 5 字段：`orderExpireAt`、`blockConfirmations`、`chainTxRaw`、`usdtTolerance`；新增 `expired` 状态
+4. ✅ **node-cron 定时任务**每 30 秒轮询 pending 订单 → 扫描 Tron 链上指定商户钱包的最新转入 → 自动匹配 + 标记 paid
+5. ✅ 校验 6 条件：合约地址正确 / ret=SUCCESS / to=商户钱包 / 金额在容忍度以内 / 确认数≥6 / 交易时间 ∈ [createdAt, orderExpireAt]
+6. ✅ 幂等：`txHash` 唯一索引；前端只负责展示 + 触发辅助校验，成功判定完全由后端执行
+7. ✅ Checkout 页 15 分钟倒计时 + 5s 轮询订单状态
+8. ✅ M5 里程碑：**Tron Nile 测试网**完整链路自测通过（下单 → Nile 测试链转 USDT → 后端自动识别 → 订单 paid + 询盘 CSV 导出）
+
+请确认以上 8 条变更后回复「**同意 v1.1，开始开发**」或指出调整项。
 
 ---
 
@@ -36,6 +52,10 @@
 | 邮件通知 | nodemailer | 询盘邮件通知（demo 模式下控制台输出 + 保存到 logs/） |
 | 环境变量 | dotenv | .env 配置 |
 | CORS | cors | 前后端分离跨域 |
+| **定时任务** | **node-cron** | **每 30s 轮询 pending 订单的链上到账 + 15 分钟订单过期扫描** |
+| **链上校验** | **axios → TronGrid REST API** | **不直接依赖 tronweb（包体积大），用 HTTP 直调 TronGrid： Nile / Mainnet /gettransactioninfobyid + /wallet/gettransactionbyid + /v1/accounts/{address}/transactions（TRC20 事件）** |
+| CSV 导出 | json2csv | 询盘导出（admin/inquiries/export） |
+| QRCode | qrcode（后端生成 base64） | 收银台收款码；前端可选 react-qr-code 备用 |
 
 ### 1.3 运行方式
 - 本地开发：`npm run dev` → 并行启动前端(Vite@5173) + 后端(Express@5000) + MongoDB(本地 27017)
@@ -194,22 +214,41 @@
 }
 ```
 
-### 3.4 Order（订单 / 支付模拟）
+### 3.4 Order（订单 / 真实 TRC20-USDT 链上支付）
 ```ts
 {
   _id,
   orderNo: string,            // 自生成: OC20260822xxxxx
   items: [{ productId, name, price, qty }],
-  totalAmount: number,        // USD
-  usdtAmount: number,         // USDT 金额（按汇率换算）
+  totalAmount: number,        // USD 标价
+  usdtAmount: number,         // USDT 应付金额（按汇率换算，保留 6 位小数）
+  usdtTolerance: number,      // 金额容错比例，默认 0.01 = 1%（客户转账可能少手续费）
   contactInfo: { name, email, whatsapp, shippingAddress },
   customDemand: string,
   paymentMethod: 'USDT-TRC20',
-  paymentStatus: 'pending'|'paid'|'failed'|'refunded',
-  txHash?: string,            // 交易哈希
-  walletAddress: string,      // 我方固定收款地址
-  createdAt, paidAt?
+
+  // ---- 新增（v1.1） ----
+  orderExpireAt: Date,        // 订单有效期 = createdAt + 15 分钟，超时自动置 expired
+  walletAddress: string,      // 我方固定商户钱包地址（TRC20）
+  tronNetwork: 'mainnet' | 'nile',  // 链环境（开发默认 nile 测试网，生产切 mainnet）
+  usdtContractAddress: string,        // TRC20 USDT 合约地址（写入快照，防后续配置漂移）
+  paymentStatus: 'pending' | 'paid' | 'expired' | 'failed' | 'refunded',  // 新增 expired
+  txHash?: string,            // 成功命中的链上交易哈希（唯一索引，幂等防重用）
+  chainTxRaw?: Mixed,         // 命中的 getTransactionInfoById 原始响应（审计用）
+  blockConfirmations?: number,// 最后一次记录的区块确认数
+  paidAt?: Date,
+  expiredAt?: Date,
+  userSubmittedTxHash?: string, // 前端手工填入的 txHash（仅作辅助触发校验，不作为成功依据）
+  lastCheckedAt?: Date,       // cron 最后一次扫描时间（监控）
+  matchSource?: 'cron-auto' | 'user-trigger',  // 命中方式，审计
+  // ---- 新增（v1.1）END ----
+
+  createdAt, updatedAt
 }
+// 索引：
+//   { txHash: 1 }, { unique: true, partialFilterExpression: { txHash: { $exists: true } } }  幂等
+//   { orderNo: 1 }, 唯一
+//   { paymentStatus: 1, orderExpireAt: 1 }  cron 扫描加速
 ```
 
 ### 3.5 Admin（后台管理员）
@@ -365,17 +404,138 @@
 - 点击：打开新标签 `https://wa.me/971501234567?text=${encodeURIComponent(t('whatsapp_preset'))}`
 - 预设文案："Hello LuxeCeramics! I'm interested in your [产品名 or ceramic products]. Please contact me with more details and quote."
 
-### 6.4 U (USDT-TRC20) 支付（业务 demo 链路）
-1. 产品详情页点击「Pay with U」→ 进入 `/checkout`
-2. 填写联系信息 → 提交创建订单 → 后端计算 `usdtAmount = totalAmount * usdtRate(7.2:1 或读外部接口注释)`
-3. 显示支付信息页：
-   - 我方收款地址（TRC20）：`TJYvqxxxxxxxxxxxxxxxxxxxxxxxx`
-   - 应付金额：xxx USDT
-   - 二维码（使用 QRCode React 组件渲染地址 + 金额）
-   - 提示：15 分钟内完成转账，转账后请填入 txHash
-   - 输入框 + 「我已付款」按钮 → POST `/api/orders/:orderNo/pay` → 后端把 status 置 `paid`（demo 任意 txHash 都通过，生产环境走 tronscan API 校验）
-4. 订单状态页：显示 pending / paid / failed 徽章
-- **真实对接修改点**：在 `backend/src/utils/payment.ts` 和 `frontend/src/pages/Checkout.tsx` 顶部用 `// TODO: 真实生产对接` 注释详细标注（trongrid 查询交易、异步 webhook、订单超时取消等）
+### 6.4 真实 TRC20‑USDT 链上收款（基于 TronGrid API，禁止任意 txHash 直接通过）
+
+#### 6.4.1 常量 / 环境变量（`backend/.env`）
+```
+TRON_NETWORK=nile                  # 开发=nile测试网；生产=mainnet
+TRONGRID_API_KEY=                  # 可选，防止 429 限流，没有也可免费调用
+MERCHANT_WALLET_TRON=<我方商户Tron地址 base58，如 TXYZ...>
+USDT_CONTRACT_NILE=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t   # Nile USDT 合约
+USDT_CONTRACT_MAINNET=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t # Mainnet USDT 合约
+ORDER_TTL_MINUTES=15               # 订单 15 分钟超时
+USDT_TOLERANCE=0.01                # 金额容错 ±1%
+REQUIRED_CONFIRMATIONS=6           # 最少 6 个区块确认
+CRON_INTERVAL=*/30 * * * * *       # 每 30 秒扫描
+USD_TO_USDT_RATE=1.0               # USD 对标 USDT，陶瓷外贸 1:1（如需接 Binance 实时价注释提示）
+```
+
+#### 6.4.2 后端核心模块（新增文件）
+- `backend/src/utils/tronClient.ts`：封装 TronGrid REST 调用
+  - `getTransactionInfoById(txHash)` → 返回 `confirmed`、`blockNumber`、`contractRet`、`blockTimeStamp`
+  - `getTransactionById(txHash)` → 返回 raw_data.contract.parameter（解析 to、amount、contract_address、owner_address）
+  - `listTRC20TransfersTo(address, minTs, maxTs)` → 调 `/v1/accounts/{addr}/transactions?only_to=true&contract_address=xxx&min_timestamp=&max_timestamp=&limit=200`，遍历商户钱包最近转入（cron 自动匹配用）
+  - `parseTronAddrFromHex(hex)` → hex ↔ base58 工具
+  - 统一返回 `{ ok: true, data } | { ok: false, code, message }`；429/5xx 自动 1 次重试
+
+- `backend/src/utils/paymentValidator.ts`：6 项校验（所有成功判定都走这里，单入口）
+  ```ts
+  export function validateUSDTTransfer(opts: {
+    txInfo: any,          // getTransactionInfoById 响应
+    txRaw: any,           // getTransactionById 响应
+    expectedContract: string,      // USDT 合约（base58）
+    expectedTo: string,            // 商户钱包（base58）
+    expectedAmountSun: number,     // usdtAmount * 1e6（USDT 6 位）
+    tolerancePct: number,          // 0.01
+    requiredConfirmations: number, // 6
+    orderCreatedAt: Date,
+    orderExpireAt: Date,
+    currentBlock: number,          // 当前区块（txInfo 里可拿）
+  }): {
+    ok: boolean;
+    reason?: string;  // 失败原因，写入订单日志
+    amount?: number;  // 实际到账 sun
+    confirmations?: number;
+  }
+  ```
+  校验 6 条（严格顺序，失败即返回）：
+  1. `txInfo.receipt.result === 'SUCCESS'` 且 `contractRet[0] === 'SUCCESS'`（交易成功，非 REVERT）
+  2. `contract_address === expectedContract` 快照对比（TRC20-USDT 合约正确）
+  3. `to === base58(expectedTo)`（收款地址是商户钱包）
+  4. `abs(amount - expectedAmountSun) / expectedAmountSun ≤ tolerancePct`（金额容错 ±1%，允许客户少付手续费）
+  5. `currentBlock - txInfo.blockNumber + 1 ≥ requiredConfirmations`（确认数 ≥6；cron 多次扫描累计，用户触发不满足则 pending）
+  6. `txInfo.blockTimeStamp`（ms）∈ `[orderCreatedAt.getTime(), orderExpireAt.getTime()]`（转账发生在订单生命周期内，防历史 tx 复用）
+
+- `backend/src/jobs/paymentWatcher.ts`：node-cron 两个定时任务（应用启动即注册）
+  1. **cronAutoMatch（`*/30 * * * * *`，每 30s）**：
+     - 扫 `paymentStatus=pending && orderExpireAt > now` 的订单
+     - 对每个订单：
+       - 取时间窗 `[createdAt - 30s, now()]`（兼容区块时间戳偏差）
+       - 调 `listTRC20TransfersTo(MERCHANT_WALLET, ...)` 拿合约事件列表
+       - 对每条事件按 6.4.2 validateUSDTTransfer 校验；通过则尝试 `processPaymentSuccess(order, txHash, chainTxRaw, confirmations, 'cron-auto')`
+       - 未通过则只更新 `lastCheckedAt`
+  2. **cronExpireScan（`*/1 * * * *`，每分钟）**：
+     - 扫 `paymentStatus=pending && orderExpireAt < now()`
+     - 批量 `updateMany { $set: { paymentStatus:'expired', expiredAt:now() } }`
+
+- `processPaymentSuccess` 核心幂等函数：
+  ```
+  1. 读 DB 锁行（findOneAndUpdate: _id=orderId AND (txHash不存在 OR txHash=hash) 避免并发重复）
+  2. checkUniqueTxHash：查 Order.txHash === hash；有 → 返回 DUPLICATE_TX_HASH 错误，不更新状态
+  3. write: paymentStatus=paid, txHash, chainTxRaw, blockConfirmations, paidAt, matchSource
+  4. 触发"新到账"邮件（demo模式 logs/paid-notifications/）
+  5. return OK
+  ```
+
+#### 6.4.3 订单 API 变更（v1.1）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | /orders | 创建订单（新增字段写入：orderExpireAt=now+15min、walletAddress、tronNetwork、usdtContractAddress 快照、usdtTolerance）；返回同时带 qrcodeBase64（后端 qrcode 生成「tron:<addr>?amount=X&contract=USDT」） |
+| GET | /orders/:orderNo | 查询订单状态（给前端轮询用，返回 paymentStatus / 倒计时秒数 / confirmations 或 过期标志 / 链上 tx 已命中则返 paidAt + txHash 缩码） |
+| POST | /orders/:orderNo/verify-tx | **v1.1 替换旧 pay 接口**：前端用户填入 txHash 后调用 → 后端只做"辅助触发校验"：① 取 txInfo/txRaw 调 validateUSDTTransfer；② 通过则走 processPaymentSuccess；③ 不通过则**仍保持 pending**，返回 `{ willRecheck: true, message: "链上尚未满足条件，后台每 30s 自动扫描，请稍候或检查 txHash 是否正确" }`，**绝不把失败改 failed/paid**；幂等保护：若该 txHash 已被其他订单占用 → 返回 409 DUPLICATE |
+| GET | /orders/:orderNo/qrcode | 重新拉二维码（可选） |
+
+#### 6.4.4 前端 Checkout 页面（v1.1）
+- 路由 `/checkout/:orderNo?` 或 `/checkout`（从详情页带商品过来）
+- 区块 A：订单信息
+  - 商品明细、应付 USDT 金额、USD 金额、订单号
+  - **15:00 倒计时**组件：`setInterval` 每秒递减；`orderExpireAt` 来自后端，本地计算剩余；到 0 → 显示"订单已过期，返回重新下单"按钮并停止轮询
+- 区块 B：支付信息卡（哑光金边线）
+  - 文案："请仅使用 **TRC20 网络的 USDT** 转账。转错网络将无法找回资产。"
+  - 大二维码（qrCodeBase64）+ 收款地址 + 一键复制按钮
+  - 应付 USDT 精确到 6 位 + 容错说明
+  - **区块确认进度**：若命中 txHash 但 confirmations<6 → 展示进度条 "6/6 区块确认中…"
+- 区块 C：用户可选「我已转账」表单
+  - txHash 输入 + 提交按钮（调用 `/orders/:orderNo/verify-tx`）
+  - 提交后不显示成功失败，只显示提示「已上报，后台正在校验，每 30s 自动刷新」
+- 区块 D：订单状态徽章 + 轮询
+  - React `useEffect` + `setInterval(() => GET /orders/:orderNo, 5000)`
+  - 状态映射：
+    - pending → 橙黄灯「等待支付」+ 倒计时
+    - expired → 灰「已过期，请重新下单」
+    - paid → 哑光金 + 动画勾选「支付成功 ✓ 感谢您的订购，我们将通过 WhatsApp 与您确认发货」+ 跳转产品列表/首页按钮
+    - failed / refunded → 深红（但后端正常不会置这两个，作为预留）
+- **前端绝不自行判断 paid**：所有成功状态仅以 GET /orders/:orderNo 返回的 paymentStatus 为准
+
+#### 6.4.5 幂等与安全清单
+- [x] `Order.txHash` 唯一部分索引 → DB 层阻止同一 txHash 被两笔订单写入
+- [x] `processPaymentSuccess` 入口 findOneAndUpdate 原子 CAS
+- [x] 校验 #6 强约束交易时间在订单窗口内 → 防止客户拿 1 个月前的旧 txHash 重复骗货
+- [x] `userSubmittedTxHash` 和真正成功的 `txHash` 字段分离，防止混淆
+- [x] 所有金额比较统一用 SUN（USDT × 10^6）整数，避免浮点
+- [x] TronGrid 返回 429/5xx 自动回退 + 延迟重试（下一轮 cron 再跑），不标记失败
+- [x] 金额容忍度可配置（env 中 USDT_TOLERANCE），默认 1%
+- [x] 日志：每次 validateUSDTTransfer 结果写入 `backend/logs/payments/<orderNo>.log`（含失败原因），审计与客服排查
+
+#### 6.4.6 M5 自测流程（Tron Nile 测试网，必须跑通才能交付）
+1. 在 TronLink 钱包切到 Nile 测试网，领测试 TRX、测试 USDT（nileex.io 水龙头）
+2. 配置 `.env`：`TRON_NETWORK=nile`，`MERCHANT_WALLET_TRON=<我方测试钱包>`
+3. 启动服务 → 选一款 B2C 商品 → 下单生成订单 OCxxxx → 记录 usdtAmount
+4. 用户 TronLink（Nile）向商户钱包转 **≈usdtAmount 的 TRC20-USDT**（允许比订单金额多 0.5%），复制 txHash
+5. 前端可填可不填 txHash（验证两条路径），等待 6 个区块 + 最多 30s cron 扫描
+6. 预期结果：
+   - 订单状态自动 `pending → paid`
+   - DB 中 txHash、chainTxRaw、blockConfirmations、paidAt、matchSource 正确写入
+   - `backend/logs/payments/OCxxxx.log` 记录完整校验路径
+   - 相同 txHash 再次调用 `/verify-tx` → 返回 409 DUPLICATE_TX_HASH
+7. CSV 导出：后台询盘页点导出 → 生成合法 CSV 文件，中文/阿拉伯文不乱码
+
+#### 6.4.7 生产切换注意点（代码内 // PROD: 注释标注位置）
+- `TRON_NETWORK=mainnet` + `MERCHANT_WALLET_TRON` 换主网真实钱包
+- 为 TronGrid 申请 API KEY 写入 env，防止 429
+- 到账邮件从"写 logs"切换为真实 nodemailer SMTP（AWS SES / SendGrid）
+- 可选：接 Telegram Bot 推送"新订单 paid"通知给运营
+- 可选：webhook 回调 ERP 系统
 
 ### 6.5 图片展示与响应式
 - 所有图片 `loading="lazy"` + `decoding="async"`
@@ -515,7 +675,7 @@
 | M2 | 项目骨架 + 依赖可安装 | `npm install` 无 error，前后端各可 ts-node/dev 启动 |
 | M3 | 后端 API 全部跑通（Postman/curl 验证） | inquiry 写入 DB、邮件文件生成、登录获取 JWT、CRUD OK |
 | M4 | 前端 8 页全部可跳转 + 双语切换 + RTL | 无控制台 404，按钮交互正确 |
-| M5 | 支付模拟链路跑通 + 后台导出 CSV | 下单 → 支付 → 订单状态变为 paid |
+| M5 | **真实 TRON Nile 测试网**支付链路跑通 + 询盘 CSV 导出正常（v1.1 新交付标准） | 下单 → 钱包真实转 TRC20-USDT → TronGrid 识别交易 → 后端 6 项校验通过 + cron 自动/手动触发命中 → **订单 pending→paid（非伪造，确认真实链上 txHash 写入）**；同 txHash 二次请求返回 409；询盘 CSV UTF-8 BOM 导出不乱码 |
 | M6 | 一键脚本 + 部署 + 运维文档 + 自测报告 | `bash start.sh` 一条命令启动，浏览器打开 5173 浏览全部页面 |
 
 ---
