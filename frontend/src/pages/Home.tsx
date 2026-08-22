@@ -121,7 +121,7 @@ const Home: React.FC = () => {
             </div>
             <h2 className="serif-heading text-[38px] md:text-[52px] leading-[1.1] mb-8 text-ceramic-graphite">
               {t('home.brand_intro_title')}
-              <span className="block gold-text mt-2">Since 1995</span>
+              <span className="block gold-text mt-2">Since 1004 · Millennium Porcelain Heritage</span>
             </h2>
             <p className="text-ceramic-ash leading-[2] text-[16px] mb-5">{t('home.brand_intro_p1')}</p>
             <p className="text-ceramic-ash leading-[2] text-[16px] mb-10">{t('home.brand_intro_p2')}</p>

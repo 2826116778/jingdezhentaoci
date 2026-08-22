@@ -30,17 +30,17 @@ const About: React.FC = () => {
           <div className="text-[11px] tracking-luxury uppercase text-ceramic-gold-matte mb-4">{t('brand.name')}</div>
           <h1 className="serif-heading text-[40px] md:text-[52px] leading-[1.08] mb-8">
             {t('about.story_title')}
-            <span className="block gold-text mt-2">Since 1995</span>
+            <span className="block gold-text mt-2">Since 1004 · Millennium Porcelain Heritage</span>
           </h1>
           <p className="text-ceramic-ash leading-[2] mb-5">{t('about.story_p1')}</p>
           <p className="text-ceramic-ash leading-[2] mb-5">{t('about.story_p2')}</p>
           <p className="text-ceramic-ash leading-[2]">{t('about.story_p3')}</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <img src={PIC('about-founder-1', 1000, 1300)} className="aspect-[3/4] w-full object-cover gold-card" alt="Founder / master artisan" loading="lazy" />
+          <img src="/images/about-jdz-artisan-throwing.jpg" className="aspect-[3/4] w-full object-cover gold-card" alt="Jingdezhen master artisan hand-throwing porcelain on the wheel" loading="lazy" />
           <div className="flex flex-col gap-4">
-            <img src={PIC('about-workshop-1', 1000, 800)} className="aspect-[4/3] w-full object-cover gold-card" alt="Workshop" loading="lazy" />
-            <img src={PIC('about-workshop-2', 1000, 900)} className="aspect-[4/3] w-full object-cover gold-card" alt="Glaze room" loading="lazy" />
+            <img src="/images/about-jdz-bluewhite-painting.jpg" className="aspect-[4/3] w-full object-cover gold-card" alt="Hand-painting traditional blue-and-white Qinghua porcelain" loading="lazy" />
+            <img src="/images/about-jdz-kiln-porcelain.jpg" className="aspect-[4/3] w-full object-cover gold-card" alt="Finished Jingdezhen porcelain collection in a traditional dragon kiln gallery" loading="lazy" />
           </div>
         </div>
       </section>
