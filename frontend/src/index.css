@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===============================================================
+   LuxeCeramics 全局样式（米白+浅灰+哑光金，极简轻奢）
+   RTL 由 tailwindcss-flip 插件自动翻转 left/right。
+   =============================================================== */
+
+html { scroll-behavior: smooth; }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ceramic-cream text-ceramic-graphite font-sans antialiased;
+  font-feature-settings: "ss01", "cv01";
+}
+
+/* LTR 用 Inter + Playfair；RTL 强制 Cairo（阿拉伯字体） */
+[dir="rtl"] body,
+[dir="rtl"] * {
+  font-family: 'Cairo', 'Inter', system-ui, sans-serif;
+}
+[dir="ltr"] h1, [dir="ltr"] h2, [dir="ltr"] h3, [dir="ltr"] h4,
+[dir="ltr"] .serif-heading {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* 自定义滚动条（轻奢感） */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #F3EFE9; }
+::-webkit-scrollbar-thumb { background: #D4B896; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #B89778; }
+
+/* 金色文字渐变（仅标题装饰） */
+.gold-text {
+  background: linear-gradient(90deg, #8A6E4F 0%, #B89778 40%, #D4B896 65%, #8A6E4F 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 金色边线描边卡片 */
+.gold-card {
+  @apply bg-white border border-ceramic-gold-light/60 transition-all duration-500;
+  border-radius: 1px;
+}
+.gold-card:hover {
+  @apply border-ceramic-gold-matte shadow-gold;
+  transform: translateY(-4px);
+}
+
+/* 细线分隔 */
+.hairline {
+  @apply bg-ceramic-border;
+  height: 1px;
+}
+
+/* 按钮：哑光金 */
+.btn-gold {
+  @apply inline-flex items-center justify-center gap-2 px-7 py-3 text-sm font-medium tracking-widest uppercase
+         bg-ceramic-gold-matte text-white transition-all duration-500
+         hover:bg-ceramic-gold-deep active:scale-[0.98];
+  letter-spacing: 0.14em;
+  border-radius: 1px;
+}
+.btn-gold-outline {
+  @apply inline-flex items-center justify-center gap-2 px-7 py-3 text-sm font-medium tracking-widest uppercase
+         border border-ceramic-gold-matte text-ceramic-gold-deep bg-transparent transition-all duration-500
+         hover:bg-ceramic-gold-matte hover:text-white active:scale-[0.98];
+  letter-spacing: 0.14em;
+  border-radius: 1px;
+}
+.btn-dark {
+  @apply inline-flex items-center justify-center gap-2 px-7 py-3 text-sm font-medium tracking-widest uppercase
+         bg-ceramic-graphite text-white transition-all duration-500
+         hover:bg-black active:scale-[0.98];
+  letter-spacing: 0.14em;
+  border-radius: 1px;
+}
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-medium tracking-widest uppercase
+         text-ceramic-ash hover:text-ceramic-graphite transition-all duration-500
+         border-b border-transparent hover:border-ceramic-gold-matte;
+  letter-spacing: 0.14em;
+}
+
+/* 输入框：极简下边框 + 米白底 */
+.input {
+  @apply w-full bg-white/70 border border-ceramic-border focus:border-ceramic-gold-matte
+         rounded-none px-4 py-3 text-sm text-ceramic-graphite placeholder:text-ceramic-ash/80
+         outline-none transition-colors duration-300;
+}
+.input:focus { box-shadow: 0 0 0 3px rgba(184,151,120,0.08); }
+
+.label {
+  @apply block text-xs tracking-luxury uppercase text-ceramic-ash mb-2;
+  letter-spacing: 0.12em;
+}
+
+/* 区块通用内边距 */
+.section {
+  @apply px-6 md:px-12 lg:px-20 2xl:px-28 py-16 md:py-24 lg:py-28;
+}
+
+/* 图片懒加载占位 */
+img.lazy {
+  @apply bg-ceramic-pearl/60 animate-pulse;
+}
+img.lazy.loaded { @apply bg-transparent animate-none; }
+
+/* 徽章 */
+.badge {
+  @apply inline-flex items-center gap-1 px-2.5 py-1 text-[10px] tracking-widest uppercase;
+  letter-spacing: 0.12em;
+  border-radius: 1px;
+}
+
+/* 淡入出现动画辅助（滚动触发时加 class） */
+.reveal {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1);
+}
+.reveal.is-visible { opacity: 1; transform: none; }

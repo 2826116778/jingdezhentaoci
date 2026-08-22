@@ -410,7 +410,7 @@
 ```
 TRON_NETWORK=nile                  # 开发=nile测试网；生产=mainnet
 TRONGRID_API_KEY=                  # 可选，防止 429 限流，没有也可免费调用
-MERCHANT_WALLET_TRON=<我方商户Tron地址 base58，如 TXYZ...>
+MERCHANT_WALLET_TRON=TC7TFRfTrhEk85dXeyfghM5hqFq9HRXabU   # 商户地址（用户已提供）
 USDT_CONTRACT_NILE=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t   # Nile USDT 合约
 USDT_CONTRACT_MAINNET=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t # Mainnet USDT 合约
 ORDER_TTL_MINUTES=15               # 订单 15 分钟超时

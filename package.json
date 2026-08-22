@@ -1,0 +1,25 @@
+{
+  "name": "luxeceramics-root",
+  "version": "1.1.0",
+  "private": true,
+  "description": "高端定制陶瓷外贸独立站 - LuxeCeramics (React18+Vite+TS+Tailwind / Express+MongoDB / TRC20-USDT真实收款)",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c magenta,cyan \"npm -w backend run dev\" \"npm -w frontend run dev\"",
+    "install:all": "npm install && echo '--- 根依赖 OK，等待前后端 postinstall ---'",
+    "build": "npm -w frontend run build && npm -w backend run build",
+    "seed": "npm -w backend run seed",
+    "start:prod": "npm -w backend run start:prod",
+    "lint": "npm -w frontend run lint && npm -w backend run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
