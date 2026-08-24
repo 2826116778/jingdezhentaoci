@@ -241,3 +241,65 @@ CMD ["node", "dist/index.js"]
 - **数据库**：`mongodump --uri="mongodb://..." --out ./dump`，每日 crontab + 上传对象存储
 - **日志**：`backend/logs/` 四个子目录建议做定期打包归档
 - **监控**：进程用 systemd + 告警；支付到账建议在邮件/SMTP 外再加企业微信/钉钉 webhook（可在 `utils/email.ts` 扩展）
+
+---
+
+## 🚀 部署到国外服务器指南
+
+### 方式一：从 GitHub 克隆（推荐）
+
+```bash
+# 在国外服务器上执行
+git clone https://github.com/2826116778/jingdezhentaoci.git
+cd jingdezhentaoci
+
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入实际的生产环境配置
+
+# 构建前端
+cd frontend && npm run build && cd ..
+
+# 启动服务
+npm start
+```
+
+### 方式二：直接上传 zip
+
+1. 从 TRAE 下载项目压缩包
+2. 在服务器上解压
+3. 按上述步骤安装和配置
+
+### 服务器配置建议
+
+- **Ubuntu 22.04+** 或 **CentOS 8+**
+- **Node.js 18+** (推荐 20 LTS)
+- **MongoDB 6.0+**
+- **Nginx** 反向代理
+- **PM2** 进程管理
+
+### Nginx 配置示例
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### PM2 启动命令
+
+```bash
+pm2 start backend/dist/index.js --name luxeceramics
+pm2 save
+pm2 startup systemd
+```
