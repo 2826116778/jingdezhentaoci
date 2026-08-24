@@ -132,7 +132,7 @@ export async function notifyNewInquiry(data: {
  */
 export async function notifyOrderPaid(order: {
   orderNo: string; totalAmount: number; usdtAmount: number; txHash?: string;
-  contactInfo: { name: string; email: string; whatsapp: string; shippingAddress?: string };
+  contactInfo: { name: string; email: string; whatsapp?: string; shippingAddress?: string };
 }) {
   const html = `
   <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;padding:20px;">
@@ -140,7 +140,7 @@ export async function notifyOrderPaid(order: {
     <p><b>USD Total:</b> $${order.totalAmount.toFixed(2)} &nbsp;&nbsp; <b>USDT Paid:</b> ${order.usdtAmount.toFixed(6)}</p>
     <p><b>TX Hash:</b> <code>${order.txHash || '—'}</code></p>
     <p><b>Customer:</b> ${order.contactInfo.name} &lt;${order.contactInfo.email}&gt;<br/>
-       <b>WhatsApp:</b> ${order.contactInfo.whatsapp}<br/>
+       <b>WhatsApp:</b> ${order.contactInfo.whatsapp || '—'}<br/>
        <b>Shipping:</b> ${order.contactInfo.shippingAddress || '—'}
     </p>
     <p style="margin-top:18px;color:#8A857C;font-size:13px;">请在 24 小时内通过 WhatsApp 确认订单并告知生产/发货安排。</p>

@@ -1,11 +1,15 @@
 /**
  * Order 模型 — 订单（真实 TRC20-USDT 链上支付）
- * v1.1 新增字段：orderExpireAt / expired 状态 / blockConfirmations / chainTxRaw / usdtTolerance
- *       + tronNetwork / usdtContractAddress 快照 / 幂等 txHash 唯一索引
+ * v1.2 新增：orderType (retail/dealer) + 完整收货地址 + 经销商信息
+ *   - Retail（散客）：只需填收货地址即可支付，表单精简
+ *   - Dealer（经销商）：必须填公司/WhatsApp/国家/项目需求，收货地址可选
+ * v1.1 原有：orderExpireAt / expired / blockConfirmations / chainTxRaw / usdtTolerance
+ *       + tronNetwork / usdtContractAddress / 幂等 txHash 唯一索引
  */
 import { Schema, model, Document, Types } from 'mongoose';
 
 export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'failed' | 'refunded';
+export type OrderType = 'retail' | 'dealer';
 
 export interface OrderItem {
   productId?: Types.ObjectId;
@@ -18,22 +22,40 @@ export interface OrderItem {
 export interface ContactInfo {
   name: string;
   email: string;
-  whatsapp: string;
+  whatsapp?: string;
   phone?: string;
   country?: string;
   company?: string;
+  // 完整收货地址
   shippingAddress?: string;
+  shippingAddress2?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingZip?: string;
+  shippingCountry?: string;
+}
+
+export interface DealerInfo {
+  company: string;
+  whatsapp: string;
+  country?: string;
+  website?: string;
+  // 管理员后台可手动编辑的备注
+  adminNotes?: string;
+  tags?: string[];
 }
 
 export interface IOrder extends Document {
   _id: Types.ObjectId;
   orderNo: string;
+  orderType: OrderType;
   items: OrderItem[];
   totalAmount: number;       // USD
   usdtAmount: number;        // 应付 USDT
   usdtTolerance: number;     // 容错比例，例如 0.01
   contactInfo: ContactInfo;
-  customDemand: string;
+  dealerInfo?: DealerInfo;   // 仅 dealer 类型必填；retail 可无
+  customDemand: string;      // 项目需求 / 询盘内容（dealer 强需求）
   paymentMethod: 'USDT-TRC20';
   orderExpireAt: Date;
   walletAddress: string;
@@ -63,20 +85,37 @@ const OrderItemSchema = new Schema<OrderItem>({
 const ContactInfoSchema = new Schema<ContactInfo>({
   name: { type: String, required: true },
   email: { type: String, required: true },
-  whatsapp: { type: String, required: true },
+  whatsapp: { type: String, default: '' },
   phone: { type: String, default: '' },
   country: { type: String, default: '' },
   company: { type: String, default: '' },
+  // 收货地址完整字段
   shippingAddress: { type: String, default: '' },
+  shippingAddress2: { type: String, default: '' },
+  shippingCity: { type: String, default: '' },
+  shippingState: { type: String, default: '' },
+  shippingZip: { type: String, default: '' },
+  shippingCountry: { type: String, default: '' },
+}, { _id: false });
+
+const DealerInfoSchema = new Schema<DealerInfo>({
+  company: { type: String, default: '' },
+  whatsapp: { type: String, default: '' },
+  country: { type: String, default: '' },
+  website: { type: String, default: '' },
+  adminNotes: { type: String, default: '' },
+  tags: { type: [String], default: [] },
 }, { _id: false });
 
 const OrderSchema = new Schema<IOrder>({
   orderNo: { type: String, required: true, unique: true, index: true },
+  orderType: { type: String, enum: ['retail', 'dealer'], default: 'retail', required: true, index: true },
   items: { type: [OrderItemSchema], required: true, default: [] },
   totalAmount: { type: Number, required: true },
   usdtAmount: { type: Number, required: true },
   usdtTolerance: { type: Number, required: true, default: 0.01 },
   contactInfo: { type: ContactInfoSchema, required: true },
+  dealerInfo: { type: DealerInfoSchema, default: null },
   customDemand: { type: String, default: '' },
   paymentMethod: { type: String, default: 'USDT-TRC20', enum: ['USDT-TRC20'] },
 
@@ -94,9 +133,7 @@ const OrderSchema = new Schema<IOrder>({
   },
   txHash: {
     type: String,
-    index: true,
-    unique: true,
-    // 允许 null（未支付时），但一旦写入必须唯一（部分唯一索引）
+    // 部分唯一索引在下方定义：仅当 txHash 存在且为 string 时才唯一
   },
   chainTxRaw: { type: Schema.Types.Mixed },
   blockConfirmations: { type: Number },
@@ -110,6 +147,7 @@ const OrderSchema = new Schema<IOrder>({
 // 关键复合索引：加速 cron 扫描 pending + 未过期的订单
 OrderSchema.index({ paymentStatus: 1, orderExpireAt: 1 });
 OrderSchema.index({ paymentStatus: 1, createdAt: -1 });
+OrderSchema.index({ orderType: 1, paymentStatus: 1 });
 // 部分唯一索引：确保同一 txHash 只用于一笔订单（当 txHash 存在时唯一）
 OrderSchema.index(
   { txHash: 1 },

@@ -41,6 +41,9 @@ function makeQrString(wallet: string, usdt: number, contract: string) {
 
 /**
  * 创建订单
+ * 支持两种客户类型：
+ *   - retail（散客）：需要姓名+邮箱+电话+收货地址才能支付；公司/项目需求可选
+ *   - dealer（经销商/B2B）：需要公司+WhatsApp+国家+项目需求；收货地址可选（后续再填）
  */
 router.post('/orders', async (req, res, next) => {
   try {
@@ -48,18 +51,56 @@ router.post('/orders', async (req, res, next) => {
     const items = (body.items || []) as OrderItem[];
     if (!items.length) return fail(res, '购物车不能为空');
     const contact = body.contactInfo as ContactInfo;
-    // 放宽：whatsapp 若为空，使用 phone 字段填充（用户常常只填一个号码）
-    if (!contact?.whatsapp && contact?.phone) contact.whatsapp = contact.phone;
-    if (!contact?.name || !contact?.email || !contact?.whatsapp) {
-      return fail(res, '姓名/邮箱/联系电话（WhatsApp 或 Phone）为必填项');
+    const orderType = (body.orderType === 'dealer' ? 'dealer' : 'retail') as 'retail' | 'dealer';
+
+    // 通用字段
+    if (!contact?.name || !contact?.email) return fail(res, '姓名和邮箱为必填项');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) return fail(res, '邮箱格式不正确');
+
+    if (orderType === 'retail') {
+      // 散客校验：电话+收货地址必填
+      const phoneOk = contact?.phone?.trim() || contact?.whatsapp?.trim();
+      if (!phoneOk) return fail(res, '散客需填写联系电话（Phone 或 WhatsApp）');
+      const shippingRequired = [
+        contact?.shippingAddress,
+        contact?.shippingCity,
+        contact?.shippingCountry,
+      ];
+      if (shippingRequired.some(v => !v || !String(v).trim())) {
+        return fail(res, '散客需填写完整收货地址（街道、城市、国家）');
+      }
+      // 散客 whatsapp 用 phone 兜底
+      if (!contact.whatsapp && contact.phone) contact.whatsapp = contact.phone;
+    } else {
+      // 经销商校验：公司+WhatsApp+国家+项目需求 必填
+      if (!contact?.company?.trim()) return fail(res, '经销商需填写公司名称');
+      if (!contact?.whatsapp?.trim()) {
+        if (!contact?.phone?.trim()) return fail(res, '经销商需填写 WhatsApp 或联系电话');
+        contact.whatsapp = contact.phone;
+      }
+      if (!contact?.country?.trim()) return fail(res, '经销商需填写所在国家');
+      if (!body.customDemand || !String(body.customDemand).trim() || String(body.customDemand).trim().length < 10) {
+        return fail(res, '经销商需填写项目需求（至少 10 字）');
+      }
     }
 
     const total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
     if (!(total > 0)) return fail(res, '订单总额必须大于 0');
     const usdtAmount = +(total * env.USD_TO_USDT_RATE).toFixed(6);
 
+    // 构造 dealerInfo（仅 dealer 类型时存）
+    const dealerInfoObj = orderType === 'dealer' ? {
+      company: contact.company || '',
+      whatsapp: contact.whatsapp || contact.phone || '',
+      country: contact.country || '',
+      website: '',
+      adminNotes: '',
+      tags: [],
+    } : null;
+
     const order = new Order({
       orderNo: genOrderNo(),
+      orderType,
       items: items.map(i => ({
         productId: i.productId,
         name: i.name,
@@ -73,12 +114,18 @@ router.post('/orders', async (req, res, next) => {
       contactInfo: {
         name: contact.name,
         email: contact.email,
-        whatsapp: contact.whatsapp,
-        phone: contact.phone || contact.whatsapp,
+        whatsapp: contact.whatsapp || '',
+        phone: contact.phone || contact.whatsapp || '',
         country: contact.country || '',
         company: contact.company || '',
         shippingAddress: contact.shippingAddress || '',
+        shippingAddress2: contact.shippingAddress2 || '',
+        shippingCity: contact.shippingCity || '',
+        shippingState: contact.shippingState || '',
+        shippingZip: contact.shippingZip || '',
+        shippingCountry: contact.shippingCountry || '',
       },
+      dealerInfo: dealerInfoObj,
       customDemand: body.customDemand || '',
       paymentMethod: 'USDT-TRC20',
       orderExpireAt: new Date(Date.now() + env.ORDER_TTL_MINUTES * 60_000),
@@ -97,6 +144,7 @@ router.post('/orders', async (req, res, next) => {
     return success(res, {
       _id: order._id,
       orderNo: order.orderNo,
+      orderType: order.orderType,
       amount: order.usdtAmount,
       totalAmount: order.totalAmount,
       usdtAmount: order.usdtAmount,
@@ -109,6 +157,7 @@ router.post('/orders', async (req, res, next) => {
       createdAt: order.createdAt,
       items: order.items,
       contactInfo: order.contactInfo,
+      dealerInfo: order.dealerInfo,
       customDemand: order.customDemand,
       paymentStatus: order.paymentStatus,
       txHash: order.txHash || '',
@@ -128,11 +177,11 @@ router.get('/orders/:orderNo', async (req, res, next) => {
 
     const ttlMs = Math.max(0, order.orderExpireAt.getTime() - Date.now());
     const isExpired = order.paymentStatus === 'pending' && ttlMs === 0;
-    // 真实 expired status 会由 cron 写入，但这里前端也做一次显示判断
     const displayStatus = isExpired ? 'expired' : order.paymentStatus;
 
     return success(res, {
       orderNo: order.orderNo,
+      orderType: order.orderType,
       items: order.items,
       totalAmount: order.totalAmount,
       usdtAmount: order.usdtAmount,
@@ -143,6 +192,7 @@ router.get('/orders/:orderNo', async (req, res, next) => {
       orderExpireAt: order.orderExpireAt,
       createdAt: order.createdAt,
       contactInfo: order.contactInfo,
+      dealerInfo: order.dealerInfo,
       customDemand: order.customDemand,
       paymentStatus: displayStatus,
       confirmations: order.blockConfirmations,
@@ -244,9 +294,10 @@ router.post('/orders/:orderNo/verify-tx', async (req, res, next) => {
 // -------- 管理 --------
 router.get('/orders', authJWT(), async (req, res, next) => {
   try {
-    const { page = '1', limit = '20', status } = req.query as any;
+    const { page = '1', limit = '20', status, orderType } = req.query as any;
     const q: any = {};
     if (status) q.paymentStatus = status;
+    if (orderType) q.orderType = orderType;
     const pageN = Math.max(1, Number(page));
     const limitN = Math.min(200, Math.max(1, Number(limit)));
     const [list, total] = await Promise.all([
@@ -267,6 +318,55 @@ router.patch('/orders/:id/status', authJWT(), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/**
+ * 后台：更新经销商信息（WhatsApp / 公司 / 国家 / 备注 / 标签等）
+ * 管理员可以为经销商订单补充 / 修改联系信息
+ */
+router.patch('/orders/:id/dealer', authJWT(), async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return fail(res, '订单不存在', 404);
+    const body = req.body || {};
+    const update: any = {};
+
+    // 用 $set 的 dot-notation 更新嵌套字段，避免子文档 spread 问题
+    const setPatch: any = {};
+    if (body.dealerInfo) {
+      if (body.dealerInfo.company !== undefined) setPatch['dealerInfo.company'] = body.dealerInfo.company;
+      if (body.dealerInfo.whatsapp !== undefined) setPatch['dealerInfo.whatsapp'] = body.dealerInfo.whatsapp;
+      if (body.dealerInfo.country !== undefined) setPatch['dealerInfo.country'] = body.dealerInfo.country;
+      if (body.dealerInfo.website !== undefined) setPatch['dealerInfo.website'] = body.dealerInfo.website;
+      if (body.dealerInfo.adminNotes !== undefined) setPatch['dealerInfo.adminNotes'] = body.dealerInfo.adminNotes;
+      if (body.dealerInfo.tags !== undefined) setPatch['dealerInfo.tags'] = body.dealerInfo.tags;
+    }
+
+    // 初始化 dealerInfo（如果之前为 null）
+    if (order.dealerInfo === null && Object.keys(setPatch).length) {
+      update.$set = { ...(update.$set || {}), 'dealerInfo': {} };
+    }
+
+    // 同步 whatsapp 到 contactInfo
+    if (body.dealerInfo?.whatsapp) {
+      setPatch['contactInfo.whatsapp'] = body.dealerInfo.whatsapp;
+    }
+
+    if (Object.keys(setPatch).length) {
+      update.$set = { ...(update.$set || {}), ...setPatch };
+    }
+
+    // 支持直接修改 orderType
+    if (body.orderType) update.$set = { ...(update.$set || {}), orderType: body.orderType };
+    if (body.customDemand !== undefined) update.$set = { ...(update.$set || {}), customDemand: body.customDemand };
+
+    if (!update.$set || Object.keys(update.$set).length === 0) {
+      return fail(res, '无字段需要更新');
+    }
+
+    const r = await Order.findByIdAndUpdate(req.params.id, update, { new: true });
+    return success(res, r?.toObject());
+  } catch (e) { next(e); }
+});
+
 // ------- 按 _id 查询 / 校验（前端 Checkout / 后台统一调用） -------
 router.get('/orders/id/:id', async (req, res, next) => {
   try {
@@ -282,6 +382,7 @@ router.get('/orders/id/:id', async (req, res, next) => {
     const summary = {
       _id: order._id,
       orderNo: order.orderNo,
+      orderType: order.orderType,
       items: order.items,
       amount: order.usdtAmount,
       usdtAmount: order.usdtAmount,
@@ -293,6 +394,7 @@ router.get('/orders/id/:id', async (req, res, next) => {
       orderExpireAt: order.orderExpireAt,
       createdAt: order.createdAt,
       contactInfo: order.contactInfo,
+      dealerInfo: order.dealerInfo,
       customDemand: order.customDemand,
       paymentStatus: displayStatus,
       confirmations: order.blockConfirmations,

@@ -4,13 +4,13 @@ import { useTranslation } from 'react-i18next';
 import {
   Copy, Check, ChevronRight, Eye, EyeOff, Wallet, AlertCircle, FileText,
   Clock, ArrowLeft, ShieldCheck, RefreshCw, Send, QrCode, CheckCircle2,
-  ShoppingCart, CreditCard, XCircle, Loader2
+  ShoppingCart, CreditCard, XCircle, Loader2, User2, Building2
 } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import { Orders, type CreateOrderInput } from '../api';
 import { useApp } from '../context/AppContext';
 import { copyText, secondsToMMSS, truncateTxHash } from '../utils';
-import type { CartItem, CheckoutDraft, ContactInfo, OrderListItem, OrderSummary } from '../types';
+import type { CartItem, CheckoutDraft, ContactInfo, OrderListItem, OrderSummary, OrderType } from '../types';
 
 const PAY_WINDOW_SEC = 60 * 30; // 支付窗口 30 分钟（与后端同步）
 
@@ -37,6 +37,7 @@ const Checkout: React.FC = () => {
   const [draft, setDraft] = useState<CheckoutDraft>(() => readDraft());
   const [contact, setContact] = useState<ContactInfo>(() => ({ ...readDraft().contactInfo }));
   const [demand, setDemand] = useState<string>(() => readDraft().customDemand || '');
+  const [orderType, setOrderType] = useState<OrderType>(() => readDraft().orderType || 'retail');
   const [agreed, setAgreed] = useState(true);
   const [step, setStep] = useState<Step>('draft');
   const [submitting, setSubmitting] = useState(false);
@@ -101,9 +102,9 @@ const Checkout: React.FC = () => {
   useEffect(() => {
     const items = draft.items.map(it => ({ ...it, qty: Math.max(1, it.qty) }));
     sessionStorage.setItem('luxe.checkoutDraft', JSON.stringify({
-      items, contactInfo: contact, customDemand: demand,
+      items, contactInfo: contact, customDemand: demand, orderType,
     }));
-  }, [draft, contact, demand]);
+  }, [draft, contact, demand, orderType]);
 
   // 计算总价
   const total = useMemo(
@@ -118,13 +119,27 @@ const Checkout: React.FC = () => {
   const removeItem = (idx: number) =>
     setDraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }));
 
-  // --- 下单校验 ---
+  // --- 下单校验（按 orderType 分两套规则） ---
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (draft.items.length === 0) e.items = t('checkout.empty_cart');
     if (!contact.name || contact.name.trim().length < 2) e.name = t('checkout.e_name');
     if (!contact.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) e.email = t('checkout.e_email');
-    if (!contact.phone || contact.phone.trim().length < 5) e.phone = t('checkout.e_phone');
+
+    if (orderType === 'retail') {
+      // 散客：电话+收货地址必填
+      const phoneOk = contact.phone?.trim() || contact.whatsapp?.trim();
+      if (!phoneOk) e.phone = t('checkout.e_phone');
+      if (!contact.shippingAddress?.trim()) e.shippingAddress = t('checkout.e_shipping_address');
+      if (!contact.shippingCity?.trim()) e.shippingCity = t('checkout.e_shipping_city');
+      if (!contact.shippingCountry?.trim()) e.shippingCountry = t('checkout.e_shipping_country');
+    } else {
+      // 经销商：公司+WhatsApp+国家+项目需求必填
+      if (!contact.company?.trim()) e.company = t('checkout.e_company');
+      if (!contact.whatsapp?.trim() && !contact.phone?.trim()) e.whatsapp = t('checkout.e_whatsapp');
+      if (!contact.country?.trim()) e.country = t('checkout.e_country');
+      if (!demand?.trim() || demand.trim().length < 10) e.demand = t('checkout.e_custom');
+    }
     if (!agreed) e.tos = t('checkout.e_tos');
     if (total <= 0) e.items = t('checkout.e_amount_zero');
     setErrors(e);
@@ -137,6 +152,7 @@ const Checkout: React.FC = () => {
     setNetworkError(null);
     try {
       const input: CreateOrderInput = {
+        orderType,
         items: draft.items.map(it => ({
           productId: it.productId,
           name: it.name,
@@ -148,10 +164,15 @@ const Checkout: React.FC = () => {
           name: contact.name || '',
           email: contact.email || '',
           phone: contact.phone,
-          whatsapp: contact.whatsapp || contact.phone,  // 用户只填 phone 也 OK（后端再次兜底）
+          whatsapp: contact.whatsapp || contact.phone,
           country: contact.country,
           company: contact.company,
           shippingAddress: contact.shippingAddress,
+          shippingAddress2: contact.shippingAddress2,
+          shippingCity: contact.shippingCity,
+          shippingState: contact.shippingState,
+          shippingZip: contact.shippingZip,
+          shippingCountry: contact.shippingCountry,
         },
         customDemand: demand,
       };
@@ -388,6 +409,37 @@ const Checkout: React.FC = () => {
               <h3 className="serif-heading text-[22px] mb-6 flex items-center gap-2">
                 <FileText size={18} /> {t('checkout.contact_title')}
               </h3>
+
+              {/* 客户类型切换：散客 / 经销商 */}
+              <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-ceramic-offWhite rounded-sm">
+                <button
+                  type="button"
+                  className={`flex items-center justify-center gap-2 py-3 text-sm font-medium transition-all rounded-sm ${
+                    orderType === 'retail'
+                      ? 'bg-white text-ceramic-gold-matte shadow-sm border border-ceramic-gold-matte/30'
+                      : 'text-ceramic-ash hover:text-ceramic-graphite'
+                  }`}
+                  onClick={() => { setOrderType('retail'); setErrors({}); }}
+                >
+                  <User2 size={16} /> {t('checkout.type_retail')}
+                </button>
+                <button
+                  type="button"
+                  className={`flex items-center justify-center gap-2 py-3 text-sm font-medium transition-all rounded-sm ${
+                    orderType === 'dealer'
+                      ? 'bg-white text-ceramic-gold-matte shadow-sm border border-ceramic-gold-matte/30'
+                      : 'text-ceramic-ash hover:text-ceramic-graphite'
+                  }`}
+                  onClick={() => { setOrderType('dealer'); setErrors({}); }}
+                >
+                  <Building2 size={16} /> {t('checkout.type_dealer')}
+                </button>
+              </div>
+              <p className="text-[11px] text-ceramic-ash mb-5 leading-relaxed">
+                {orderType === 'retail' ? t('checkout.type_retail_desc') : t('checkout.type_dealer_desc')}
+              </p>
+
+              {/* 通用：姓名 + 邮箱 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 md:flex md:gap-4">
                   <div className="md:w-1/2 mb-4 md:mb-0">
@@ -403,29 +455,130 @@ const Checkout: React.FC = () => {
                     {errors.email && <p className="text-rose-500 text-xs mt-1">{errors.email}</p>}
                   </div>
                 </div>
-                <div className="md:col-span-2 md:flex md:gap-4">
-                  <div className="md:w-1/2 mb-4 md:mb-0">
-                    <label className="label mb-1.5">{t('checkout.c_phone')} <span className="text-rose-500">*</span></label>
-                    <input className={`input ${errors.phone ? '!border-rose-300' : ''}`} placeholder="+971 xx xxx xxxx"
-                      value={contact.phone || ''} onChange={e => setContact({ ...contact, phone: e.target.value })} />
-                    {errors.phone && <p className="text-rose-500 text-xs mt-1">{errors.phone}</p>}
-                  </div>
-                  <div className="md:w-1/2">
-                    <label className="label mb-1.5">{t('checkout.c_company')}</label>
-                    <input className="input" placeholder="Optional"
-                      value={contact.company || ''} onChange={e => setContact({ ...contact, company: e.target.value })} />
-                  </div>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="label mb-1.5">{t('checkout.c_country')}</label>
-                  <input className="input" placeholder="e.g. UAE, Saudi Arabia..."
-                    value={contact.country || ''} onChange={e => setContact({ ...contact, country: e.target.value })} />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="label mb-1.5">{t('checkout.c_custom')}</label>
-                  <textarea className="input min-h-[120px]" placeholder={t('checkout.c_custom_ph')}
-                    value={demand} onChange={e => setDemand(e.target.value)} />
-                </div>
+
+                {/* 散客模式：电话 + 收货地址 */}
+                {orderType === 'retail' ? (
+                  <>
+                    <div className="md:col-span-2 md:flex md:gap-4">
+                      <div className="md:w-1/2 mb-4 md:mb-0">
+                        <label className="label mb-1.5">{t('checkout.c_phone')} <span className="text-rose-500">*</span></label>
+                        <input className={`input ${errors.phone ? '!border-rose-300' : ''}`} placeholder="+971 xx xxx xxxx"
+                          value={contact.phone || ''} onChange={e => setContact({ ...contact, phone: e.target.value })} />
+                        {errors.phone && <p className="text-rose-500 text-xs mt-1">{errors.phone}</p>}
+                      </div>
+                      <div className="md:w-1/2">
+                        <label className="label mb-1.5">{t('checkout.c_whatsapp')}</label>
+                        <input className="input" placeholder="Optional"
+                          value={contact.whatsapp || ''} onChange={e => setContact({ ...contact, whatsapp: e.target.value })} />
+                      </div>
+                    </div>
+                    {/* 收货地址区块（散客必填） */}
+                    <div className="md:col-span-2 pt-4 border-t border-dashed border-ceramic-gold-matte/30">
+                      <div className="text-[11px] tracking-luxury uppercase text-ceramic-gold-matte mb-4 flex items-center gap-2">
+                        📦 {t('checkout.shipping_title')}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="label mb-1.5">{t('checkout.shipping_address')} <span className="text-rose-500">*</span></label>
+                          <input className={`input ${errors.shippingAddress ? '!border-rose-300' : ''}`} placeholder="Street address"
+                            value={contact.shippingAddress || ''} onChange={e => setContact({ ...contact, shippingAddress: e.target.value })} />
+                          {errors.shippingAddress && <p className="text-rose-500 text-xs mt-1">{errors.shippingAddress}</p>}
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="label mb-1.5">{t('checkout.shipping_address2')}</label>
+                          <input className="input" placeholder="Apartment, suite, unit (optional)"
+                            value={contact.shippingAddress2 || ''} onChange={e => setContact({ ...contact, shippingAddress2: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_city')} <span className="text-rose-500">*</span></label>
+                          <input className={`input ${errors.shippingCity ? '!border-rose-300' : ''}`} placeholder="City"
+                            value={contact.shippingCity || ''} onChange={e => setContact({ ...contact, shippingCity: e.target.value })} />
+                          {errors.shippingCity && <p className="text-rose-500 text-xs mt-1">{errors.shippingCity}</p>}
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_state')}</label>
+                          <input className="input" placeholder="State / Province (optional)"
+                            value={contact.shippingState || ''} onChange={e => setContact({ ...contact, shippingState: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_zip')}</label>
+                          <input className="input" placeholder="Postal / Zip code (optional)"
+                            value={contact.shippingZip || ''} onChange={e => setContact({ ...contact, shippingZip: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_country')} <span className="text-rose-500">*</span></label>
+                          <input className={`input ${errors.shippingCountry ? '!border-rose-300' : ''}`} placeholder="Country"
+                            value={contact.shippingCountry || ''} onChange={e => setContact({ ...contact, shippingCountry: e.target.value })} />
+                          {errors.shippingCountry && <p className="text-rose-500 text-xs mt-1">{errors.shippingCountry}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 经销商模式：公司 + WhatsApp + 国家 + 项目需求 */}
+                    <div className="md:col-span-2 md:flex md:gap-4">
+                      <div className="md:w-1/2 mb-4 md:mb-0">
+                        <label className="label mb-1.5">{t('checkout.c_company')} <span className="text-rose-500">*</span></label>
+                        <input className={`input ${errors.company ? '!border-rose-300' : ''}`} placeholder="Your company / organization"
+                          value={contact.company || ''} onChange={e => setContact({ ...contact, company: e.target.value })} />
+                        {errors.company && <p className="text-rose-500 text-xs mt-1">{errors.company}</p>}
+                      </div>
+                      <div className="md:w-1/2">
+                        <label className="label mb-1.5">{t('checkout.c_whatsapp')} <span className="text-rose-500">*</span></label>
+                        <input className={`input ${errors.whatsapp ? '!border-rose-300' : ''}`} placeholder="+971 xxx xxxxx"
+                          value={contact.whatsapp || ''} onChange={e => setContact({ ...contact, whatsapp: e.target.value })} />
+                        {errors.whatsapp && <p className="text-rose-500 text-xs mt-1">{errors.whatsapp}</p>}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2 md:flex md:gap-4">
+                      <div className="md:w-1/2 mb-4 md:mb-0">
+                        <label className="label mb-1.5">{t('checkout.c_phone')}</label>
+                        <input className="input" placeholder="Alternate phone (optional)"
+                          value={contact.phone || ''} onChange={e => setContact({ ...contact, phone: e.target.value })} />
+                      </div>
+                      <div className="md:w-1/2">
+                        <label className="label mb-1.5">{t('checkout.c_country')} <span className="text-rose-500">*</span></label>
+                        <input className={`input ${errors.country ? '!border-rose-300' : ''}`} placeholder="e.g. UAE, Saudi Arabia..."
+                          value={contact.country || ''} onChange={e => setContact({ ...contact, country: e.target.value })} />
+                        {errors.country && <p className="text-rose-500 text-xs mt-1">{errors.country}</p>}
+                      </div>
+                    </div>
+                    {/* 收货地址（经销商可选） */}
+                    <div className="md:col-span-2 pt-4 border-t border-dashed border-ceramic-gold-matte/30">
+                      <div className="text-[11px] tracking-luxury uppercase text-ceramic-ash mb-3">
+                        📦 {t('checkout.shipping_title')} <span className="normal-case tracking-normal text-ceramic-ash">({t('checkout.optional')})</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="label mb-1.5">{t('checkout.shipping_address')}</label>
+                          <input className="input" placeholder="Street address (optional)"
+                            value={contact.shippingAddress || ''} onChange={e => setContact({ ...contact, shippingAddress: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_city')}</label>
+                          <input className="input" placeholder="City (optional)"
+                            value={contact.shippingCity || ''} onChange={e => setContact({ ...contact, shippingCity: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="label mb-1.5">{t('checkout.shipping_country')}</label>
+                          <input className="input" placeholder="Country (optional)"
+                            value={contact.shippingCountry || ''} onChange={e => setContact({ ...contact, shippingCountry: e.target.value })} />
+                        </div>
+                      </div>
+                    </div>
+                    {/* 项目需求（经销商必填） */}
+                    <div className="md:col-span-2">
+                      <label className="label mb-1.5">{t('checkout.c_custom')} <span className="text-rose-500">*</span></label>
+                      <textarea
+                        className={`input min-h-[120px] ${errors.demand ? '!border-rose-300' : ''}`}
+                        placeholder={t('checkout.c_custom_ph')}
+                        value={demand} onChange={e => setDemand(e.target.value)}
+                      />
+                      {errors.demand && <p className="text-rose-500 text-xs mt-1">{errors.demand}</p>}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="mt-8 flex flex-wrap items-start gap-2">

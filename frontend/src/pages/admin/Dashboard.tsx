@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   Package2, FolderKanban, Mail, ArrowUpRight, ArrowDownRight, Clock,
-  DollarSign, Users, ShoppingCart, RefreshCw, Download, FileText
+  DollarSign, Users, ShoppingCart, RefreshCw, Download, FileText,
+  User2, Building2, Edit3, X, Save, MessageCircle
 } from 'lucide-react';
 import { Admin, Orders } from '../../api';
-import type { DashboardSummary, OrderListItem } from '../../types';
+import type { DashboardSummary, OrderListItem, DealerInfo } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { secondsToMMSS } from '../../utils';
 
@@ -38,6 +39,9 @@ const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [dealerModal, setDealerModal] = useState<OrderListItem | null>(null);
+  const [dealerEditing, setDealerEditing] = useState(false);
+  const [dealerSaving, setDealerSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -128,15 +132,17 @@ const AdminDashboard: React.FC = () => {
               <thead>
                 <tr className="text-[11px] tracking-luxury uppercase text-ceramic-ash bg-ceramic-offWhite/70">
                   <th className="px-6 py-4 text-start">{t('admin.dashboard.t_order')}</th>
+                  <th className="px-6 py-4 text-start">{t('admin.dashboard.t_type')}</th>
                   <th className="px-6 py-4 text-start">{t('admin.dashboard.t_amount')}</th>
                   <th className="px-6 py-4 text-start">{t('admin.dashboard.t_status')}</th>
                   <th className="px-6 py-4 text-start">{t('admin.dashboard.t_created')}</th>
+                  <th className="px-6 py-4 text-start">{t('admin.dashboard.t_actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={4} className="p-10 text-center text-ceramic-ash">{t('common.loading')}</td></tr>}
+                {loading && <tr><td colSpan={6} className="p-10 text-center text-ceramic-ash">{t('common.loading')}</td></tr>}
                 {!loading && orders.length === 0 && (
-                  <tr><td colSpan={4} className="p-10 text-center text-ceramic-ash">{t('admin.dashboard.no_orders')}</td></tr>
+                  <tr><td colSpan={6} className="p-10 text-center text-ceramic-ash">{t('admin.dashboard.no_orders')}</td></tr>
                 )}
                 {orders.map(o => (
                   <tr key={o._id} className="border-t border-ceramic-border/60 hover:bg-ceramic-offWhite/50">
@@ -144,10 +150,30 @@ const AdminDashboard: React.FC = () => {
                       <div className="font-mono text-xs">{o.orderNo}</div>
                       <div className="text-ceramic-ash text-[12px] mt-0.5">{o.contactInfo?.name || o.contactInfo?.email || '-'}</div>
                     </td>
+                    <td className="px-6 py-4">
+                      {o.orderType === 'dealer' ? (
+                        <span className="badge bg-violet-500 text-white whitespace-nowrap"><Building2 size={11} /> {t('checkout.type_dealer')}</span>
+                      ) : (
+                        <span className="badge bg-sky-500 text-white whitespace-nowrap"><User2 size={11} /> {t('checkout.type_retail')}</span>
+                      )}
+                      {o.orderType === 'dealer' && o.dealerInfo?.whatsapp && (
+                        <div className="text-[11px] text-ceramic-ash mt-1 font-mono truncate max-w-[160px]">
+                          <MessageCircle size={10} className="inline mr-1" />{o.dealerInfo.whatsapp}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 serif-heading gold-text text-[16px]">${o.amount.toFixed(2)}</td>
                     <td className="px-6 py-4">{statusBadge(o.paymentStatus)}</td>
                     <td className="px-6 py-4 text-ceramic-ash text-[12px]">
                       {new Date(o.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        className="btn-gold-outline !py-1 !px-3 !text-[11px] flex items-center gap-1"
+                        onClick={() => { setDealerModal(o); setDealerEditing(false); }}
+                      >
+                        <Edit3 size={12} /> {t('admin.dashboard.btn_dealer')}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -208,6 +234,190 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 经销商信息编辑弹窗 */}
+      {dealerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="gold-card max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-ceramic-border sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="serif-heading text-[22px] flex items-center gap-2">
+                  <Building2 size={18} className="text-ceramic-gold-matte" />
+                  {dealerModal.orderType === 'dealer' ? t('admin.dashboard.dealer_title') : t('admin.dashboard.customer_title')}
+                </h3>
+                <div className="text-[11px] text-ceramic-ash mt-1 font-mono">{dealerModal.orderNo}</div>
+              </div>
+              <button onClick={() => setDealerModal(null)} className="btn-ghost !p-2">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* 客户类型 */}
+              <div>
+                <label className="label mb-1.5">{t('admin.dashboard.t_type')}</label>
+                <div className="flex gap-2">
+                  <button
+                    className={`flex-1 py-2 text-sm rounded-sm border transition ${
+                      dealerModal.orderType === 'retail'
+                        ? 'border-ceramic-gold-matte bg-ceramic-gold-matte/5 text-ceramic-gold-matte'
+                        : 'border-ceramic-border text-ceramic-ash'
+                    }`}
+                    onClick={() => setDealerModal({ ...dealerModal, orderType: 'retail' })}
+                  >
+                    <User2 size={14} className="inline mr-1" /> {t('checkout.type_retail')}
+                  </button>
+                  <button
+                    className={`flex-1 py-2 text-sm rounded-sm border transition ${
+                      dealerModal.orderType === 'dealer'
+                        ? 'border-violet-500 bg-violet-500/5 text-violet-600'
+                        : 'border-ceramic-border text-ceramic-ash'
+                    }`}
+                    onClick={() => setDealerModal({ ...dealerModal, orderType: 'dealer' })}
+                  >
+                    <Building2 size={14} className="inline mr-1" /> {t('checkout.type_dealer')}
+                  </button>
+                </div>
+              </div>
+
+              {dealerModal.orderType === 'dealer' && (
+                <>
+                  {/* 经销商 WhatsApp */}
+                  <div>
+                    <label className="label mb-1.5">{t('checkout.c_whatsapp')} <span className="text-rose-500">*</span></label>
+                    <input
+                      className="input"
+                      value={dealerModal.dealerInfo?.whatsapp || dealerModal.contactInfo?.whatsapp || ''}
+                      placeholder="+971 xxx xxxxx"
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: { ...(dealerModal.dealerInfo || {}), whatsapp: e.target.value },
+                        contactInfo: { ...dealerModal.contactInfo, whatsapp: e.target.value },
+                      })}
+                    />
+                    <p className="text-[11px] text-ceramic-ash mt-1">{t('admin.dashboard.whatsapp_hint')}</p>
+                  </div>
+
+                  {/* 公司名 */}
+                  <div>
+                    <label className="label mb-1.5">{t('checkout.c_company')}</label>
+                    <input
+                      className="input"
+                      value={dealerModal.dealerInfo?.company || dealerModal.contactInfo?.company || ''}
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: { ...(dealerModal.dealerInfo || {}), company: e.target.value },
+                        contactInfo: { ...dealerModal.contactInfo, company: e.target.value },
+                      })}
+                    />
+                  </div>
+
+                  {/* 国家 */}
+                  <div>
+                    <label className="label mb-1.5">{t('checkout.c_country')}</label>
+                    <input
+                      className="input"
+                      value={dealerModal.dealerInfo?.country || dealerModal.contactInfo?.country || ''}
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: { ...(dealerModal.dealerInfo || {}), country: e.target.value },
+                        contactInfo: { ...dealerModal.contactInfo, country: e.target.value },
+                      })}
+                    />
+                  </div>
+
+                  {/* 网站 */}
+                  <div>
+                    <label className="label mb-1.5">{t('admin.dashboard.website')}</label>
+                    <input
+                      className="input"
+                      placeholder="https://..."
+                      value={dealerModal.dealerInfo?.website || ''}
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: { ...(dealerModal.dealerInfo || {}), website: e.target.value },
+                      })}
+                    />
+                  </div>
+
+                  {/* 标签 */}
+                  <div>
+                    <label className="label mb-1.5">{t('admin.dashboard.tags')}</label>
+                    <input
+                      className="input"
+                      placeholder="Comma separated: VIP, Wholesale, Hotel"
+                      value={(dealerModal.dealerInfo?.tags || []).join(', ')}
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: {
+                          ...(dealerModal.dealerInfo || {}),
+                          tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                        },
+                      })}
+                    />
+                  </div>
+
+                  {/* 管理员备注 */}
+                  <div>
+                    <label className="label mb-1.5">{t('admin.dashboard.admin_notes')}</label>
+                    <textarea
+                      className="input min-h-[80px]"
+                      placeholder="Internal notes about this dealer..."
+                      value={dealerModal.dealerInfo?.adminNotes || ''}
+                      onChange={e => setDealerModal({
+                        ...dealerModal,
+                        dealerInfo: { ...(dealerModal.dealerInfo || {}), adminNotes: e.target.value },
+                      })}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* 客户基础信息（只读） */}
+              <div className="pt-4 border-t border-ceramic-border">
+                <div className="text-[11px] tracking-luxury uppercase text-ceramic-ash mb-3">{t('admin.dashboard.customer_info')}</div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-ceramic-ash">{t('checkout.c_name')}:</span> {dealerModal.contactInfo?.name || '-'}</div>
+                  <div><span className="text-ceramic-ash">{t('checkout.c_email')}:</span> {dealerModal.contactInfo?.email || '-'}</div>
+                  <div><span className="text-ceramic-ash">{t('checkout.c_phone')}:</span> {dealerModal.contactInfo?.phone || '-'}</div>
+                  <div><span className="text-ceramic-ash">{t('checkout.total_usdt')}:</span> ${dealerModal.amount.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-ceramic-border flex items-center justify-between sticky bottom-0 bg-white">
+              <button
+                onClick={() => { setDealerModal(null); setDealerEditing(false); }}
+                className="btn-gold-outline !px-6"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={async () => {
+                  setDealerSaving(true);
+                  try {
+                    const payload: any = { orderType: dealerModal.orderType };
+                    if (dealerModal.orderType === 'dealer') {
+                      payload.dealerInfo = dealerModal.dealerInfo || {};
+                    }
+                    await Orders.setDealerInfo(dealerModal._id, payload);
+                    showToast({ type: 'success', text: t('admin.dashboard.dealer_saved') });
+                    setDealerModal(null);
+                    setDealerEditing(false);
+                    load();
+                  } catch (e: any) {
+                    showToast({ type: 'error', text: e.message || String(e) });
+                  } finally { setDealerSaving(false); }
+                }}
+                disabled={dealerSaving}
+                className="btn-gold flex items-center gap-2"
+              >
+                {dealerSaving ? <><RefreshCw size={14} className="animate-spin" /> {t('common.saving')}</> : <><Save size={14} /> {t('common.save')}</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

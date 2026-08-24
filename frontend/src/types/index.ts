@@ -14,6 +14,7 @@ export type ProductCategory = 'tableware' | 'vase' | 'art-sculpture' | 'hotel-wa
 export type ProductMaterial = 'bone-china' | 'porcelain' | 'stoneware' | 'ceramic';
 export type CaseCategory = 'hotel' | 'villa' | 'commercial';
 export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'failed' | 'refunded' | 'cancelled';
+export type OrderType = 'retail' | 'dealer';
 export type InquiryStatus = 'new' | 'read' | 'replied' | 'closed' | 'archived';
 export type InquirySource = 'contact' | 'product' | 'quote' | 'oem';
 
@@ -33,11 +34,25 @@ export interface ContactInfo {
   company?: string;
   country?: string;
   shippingAddress?: string;
+  shippingAddress2?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingZip?: string;
+  shippingCountry?: string;
+}
+export interface DealerInfo {
+  company?: string;
+  whatsapp?: string;
+  country?: string;
+  website?: string;
+  adminNotes?: string;
+  tags?: string[];
 }
 export interface CheckoutDraft {
   items: CartItem[];
   contactInfo: ContactInfo;
   customDemand: string;
+  orderType?: OrderType;
 }
 
 export interface Product {
@@ -129,6 +144,11 @@ export interface OrderContact {
   country?: string;
   company?: string;
   shippingAddress?: string;
+  shippingAddress2?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingZip?: string;
+  shippingCountry?: string;
 }
 
 export interface OrderItem {
@@ -143,6 +163,7 @@ export interface OrderItem {
 export interface OrderListItem {
   _id: string;
   orderNo: string;
+  orderType?: OrderType;
   items: OrderItem[];
   amount: number;
   paymentStatus: PaymentStatus;
@@ -150,6 +171,7 @@ export interface OrderListItem {
   txHashShort?: string;
   merchantAddress: string;
   contactInfo: ContactInfo;
+  dealerInfo?: DealerInfo;
   customDemand?: string;
   orderExpireAt: string;
   createdAt: string;

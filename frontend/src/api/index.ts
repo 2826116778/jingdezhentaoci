@@ -13,6 +13,7 @@ export type CreateOrderInput = {
   items: OrderItem[];
   contactInfo: OrderContact;
   customDemand?: string;
+  orderType?: 'retail' | 'dealer';
 };
 
 let _axios: AxiosInstance;
@@ -110,6 +111,7 @@ export const Orders = {
   verifyTx: (id: string, txHash: string) => post<{ msg: string; status: string; txHash?: string }>(`/orders/id/${id}/verify-tx`, { txHash }),
   list: (p?: any) => get<{ list: OrderListItem[]; total: number; page: number; limit: number }>('/orders', p),
   setStatus: (id: string, status: string) => patch<void>(`/orders/${id}/status`, { status }),
+  setDealerInfo: (id: string, data: any) => patch<OrderListItem>(`/orders/${id}/dealer`, data),
 };
 
 // ---------- 认证 + 后台 CMS（统一命名导出 Admin） ----------
