@@ -81,7 +81,13 @@ const ProductDetail: React.FC = () => {
   // "快速支付（U）"：构造临时订单，跳到 /checkout 并在 sessionStorage 存草稿
   const goCheckout = () => {
     const payload = {
-      items: [{ productId: product._id, name, price: product.priceMax, qty: Math.max(1, qty) }],
+      items: [{
+        productId: product._id,
+        name,
+        price: product.priceMax,
+        qty: Math.max(1, qty),
+        image: product.images?.[0] || '',
+      }],
       contactInfo: {},
       customDemand: '',
     };

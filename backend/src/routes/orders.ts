@@ -48,8 +48,10 @@ router.post('/orders', async (req, res, next) => {
     const items = (body.items || []) as OrderItem[];
     if (!items.length) return fail(res, '购物车不能为空');
     const contact = body.contactInfo as ContactInfo;
+    // 放宽：whatsapp 若为空，使用 phone 字段填充（用户常常只填一个号码）
+    if (!contact?.whatsapp && contact?.phone) contact.whatsapp = contact.phone;
     if (!contact?.name || !contact?.email || !contact?.whatsapp) {
-      return fail(res, '姓名/邮箱/WhatsApp 为必填项');
+      return fail(res, '姓名/邮箱/联系电话（WhatsApp 或 Phone）为必填项');
     }
 
     const total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
@@ -63,6 +65,7 @@ router.post('/orders', async (req, res, next) => {
         name: i.name,
         price: Number(i.price),
         qty: Number(i.qty),
+        image: i.image || '',
       })),
       totalAmount: +total.toFixed(2),
       usdtAmount,
@@ -71,6 +74,9 @@ router.post('/orders', async (req, res, next) => {
         name: contact.name,
         email: contact.email,
         whatsapp: contact.whatsapp,
+        phone: contact.phone || contact.whatsapp,
+        country: contact.country || '',
+        company: contact.company || '',
         shippingAddress: contact.shippingAddress || '',
       },
       customDemand: body.customDemand || '',
@@ -89,11 +95,14 @@ router.post('/orders', async (req, res, next) => {
     });
 
     return success(res, {
+      _id: order._id,
       orderNo: order.orderNo,
+      amount: order.usdtAmount,
       totalAmount: order.totalAmount,
       usdtAmount: order.usdtAmount,
       usdtTolerance: order.usdtTolerance,
       walletAddress: order.walletAddress,
+      merchantAddress: order.walletAddress,
       tronNetwork: order.tronNetwork,
       usdtContractAddress: order.usdtContractAddress,
       orderExpireAt: order.orderExpireAt,
@@ -101,6 +110,9 @@ router.post('/orders', async (req, res, next) => {
       items: order.items,
       contactInfo: order.contactInfo,
       customDemand: order.customDemand,
+      paymentStatus: order.paymentStatus,
+      txHash: order.txHash || '',
+      blockConfirmations: 0,
       qrcodeBase64: qr,
     }, '订单创建成功', 201);
   } catch (e) { next(e); }

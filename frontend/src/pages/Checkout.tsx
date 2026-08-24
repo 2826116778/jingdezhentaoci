@@ -1,20 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Copy, Check, ChevronRight, Eye, EyeOff, Wallet, AlertCircle, FileText,
   Clock, ArrowLeft, ShieldCheck, RefreshCw, Send, QrCode, CheckCircle2,
-  ShoppingCart, CreditCard, XCircle
+  ShoppingCart, CreditCard, XCircle, Loader2
 } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import { Orders, type CreateOrderInput } from '../api';
 import { useApp } from '../context/AppContext';
 import { copyText, secondsToMMSS, truncateTxHash } from '../utils';
-import type { CartItem, CheckoutDraft, ContactInfo, OrderListItem } from '../types';
+import type { CartItem, CheckoutDraft, ContactInfo, OrderListItem, OrderSummary } from '../types';
 
 const PAY_WINDOW_SEC = 60 * 30; // 支付窗口 30 分钟（与后端同步）
 
-type Step = 'draft' | 'placed';
+type Step = 'draft' | 'placed' | 'recover';
 
 // 从 sessionStorage 读取草稿；如草稿只有一个产品则允许改数量
 function readDraft(): CheckoutDraft {
@@ -31,6 +31,7 @@ function readDraft(): CheckoutDraft {
 const Checkout: React.FC = () => {
   const { t } = useTranslation();
   const nav = useNavigate();
+  const params = useParams<{ orderNo?: string }>();
   const { showToast } = useApp();
 
   const [draft, setDraft] = useState<CheckoutDraft>(() => readDraft());
@@ -54,7 +55,47 @@ const Checkout: React.FC = () => {
   const [statusPolling, setStatusPolling] = useState(true);
   const pollIntervalRef = useRef<number | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [networkError, setNetworkError] = useState<string | null>(null);
+
+  // ---------- 关键：URL 带 orderNo 时恢复订单（刷新 / 分享链接都能回到支付页） ----------
+  useEffect(() => {
+    if (!params.orderNo) return;
+    let cancelled = false;
+    const recover = async () => {
+      setRecovering(true);
+      setNetworkError(null);
+      try {
+        const r = (await Orders.status(params.orderNo!)) as OrderSummary;
+        if (cancelled) return;
+        setOrder(r);
+        setStep('placed');
+        const ttl = (r as any).ttlSeconds ?? PAY_WINDOW_SEC;
+        setPollTimer(Math.max(0, Math.min(PAY_WINDOW_SEC, Number(ttl) || 0)));
+        // 若草稿为空，用订单数据回填（用户可以刷新后回到付款页）
+        setDraft(d => d.items.length ? d : {
+          items: (r.items || []).map(it => ({
+            productId: it.productId as any,
+            name: it.name,
+            price: it.price,
+            qty: it.qty,
+            image: it.image,
+          })),
+          contactInfo: r.contactInfo || {},
+          customDemand: r.customDemand || '',
+        });
+      } catch (e: any) {
+        if (cancelled) return;
+        setNetworkError(e?.message || String(e));
+        // 订单不存在或已过期：保留用户在 draft 页
+        setStep('draft');
+      } finally {
+        if (!cancelled) setRecovering(false);
+      }
+    };
+    recover();
+    return () => { cancelled = true; };
+  }, [params.orderNo]);
 
   // 草稿变更 → 持久化到 sessionStorage
   useEffect(() => {
@@ -107,17 +148,20 @@ const Checkout: React.FC = () => {
           name: contact.name || '',
           email: contact.email || '',
           phone: contact.phone,
-          whatsapp: contact.whatsapp,
+          whatsapp: contact.whatsapp || contact.phone,  // 用户只填 phone 也 OK（后端再次兜底）
           country: contact.country,
           company: contact.company,
           shippingAddress: contact.shippingAddress,
         },
         customDemand: demand,
       };
-      const r = await Orders.create(input);
+      const r = (await Orders.create(input)) as OrderSummary;
       setOrder(r);
       setStep('placed');
       setPollTimer(PAY_WINDOW_SEC);
+      // 提交成功 → 替换浏览器地址为 /checkout/:orderNo，刷新不丢
+      nav(`/checkout/${r.orderNo}`, { replace: true });
+      showToast({ type: 'success', text: t('checkout.pending_sub') });
     } catch (err: any) {
       setNetworkError(err?.message || String(err));
       showToast({ type: 'error', text: String(err?.message || err) });
@@ -200,7 +244,19 @@ const Checkout: React.FC = () => {
     setPollTimer(PAY_WINDOW_SEC);
     setShowTxIdInput(false);
     setTxId('');
+    nav('/checkout', { replace: true });
   };
+
+  // URL 恢复中：显示 Loading（避免短暂空白白屏被用户当“无跳转支付页”）
+  if (recovering) {
+    return (
+      <section className="section min-h-[70vh] flex flex-col items-center justify-center text-center">
+        <SEO titleKey="checkout.pay_title" />
+        <Loader2 className="w-10 h-10 text-ceramic-gold-matte animate-spin mb-4" />
+        <div className="text-sm tracking-luxury uppercase text-ceramic-ash">{t('checkout.checking')}</div>
+      </section>
+    );
+  }
 
   // 渲染开始
   if (!order && draft.items.length === 0) {

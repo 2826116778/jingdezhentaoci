@@ -12,12 +12,16 @@ export interface OrderItem {
   name: string;
   price: number;    // USD 单价
   qty: number;
+  image?: string;
 }
 
 export interface ContactInfo {
   name: string;
   email: string;
   whatsapp: string;
+  phone?: string;
+  country?: string;
+  company?: string;
   shippingAddress?: string;
 }
 
@@ -53,12 +57,16 @@ const OrderItemSchema = new Schema<OrderItem>({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   qty: { type: Number, required: true, min: 1 },
+  image: { type: String, default: '' },
 }, { _id: false });
 
 const ContactInfoSchema = new Schema<ContactInfo>({
   name: { type: String, required: true },
   email: { type: String, required: true },
   whatsapp: { type: String, required: true },
+  phone: { type: String, default: '' },
+  country: { type: String, default: '' },
+  company: { type: String, default: '' },
   shippingAddress: { type: String, default: '' },
 }, { _id: false });
 
