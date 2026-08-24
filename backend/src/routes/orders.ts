@@ -304,7 +304,12 @@ router.get('/orders', authJWT(), async (req, res, next) => {
       Order.find(q).sort({ createdAt: -1 }).skip((pageN - 1) * limitN).limit(limitN).lean(),
       Order.countDocuments(q),
     ]);
-    return success(res, { list, total, page: pageN, limit: limitN });
+    // 映射字段：前端期望 amount (USD) 对应后端 totalAmount
+    const mapped = list.map((o: any) => ({
+      ...o,
+      amount: o.totalAmount || o.usdtAmount || 0,
+    }));
+    return success(res, { list: mapped, total, page: pageN, limit: limitN });
   } catch (e) { next(e); }
 });
 
