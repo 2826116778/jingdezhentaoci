@@ -218,3 +218,86 @@ export interface ToastOptions {
   text: string;
   duration?: number;
 }
+
+// ================================================================
+// PHASE 1 外贸业务工作台（Console）基础类型 — 扩展位，Phase 2+ 补齐
+// 设计原则：
+//  - 任何 "list endpoint" 返回标准分页 ConsolePage<T>
+//  - 任何 "get/:id endpoint" 返回 T | null
+//  - Dashboard / Analytics 返回嵌套结构 + 空数组，不造假数字
+// ================================================================
+
+/** 所有 console list 接口统一分页结构 */
+export interface ConsolePage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/** 工作台当前用户（对齐后端 /api/console/me，返回 req.admin） */
+export interface ConsoleMe {
+  id: string;
+  username: string;
+  role: string;
+  avatar: string | null;
+  timezone: string;
+  locale: string;
+}
+
+// —— Dashboard ——
+export interface ConsoleDashboardKPIs {
+  totalLeads: number;
+  totalCustomers: number;
+  totalInquiries: number;
+  totalQuotes: number;
+  totalOrders: number;
+  totalOrderAmountUsd: number;
+  pendingTasks: number;
+  upcomingFollowups: number;
+  conversionRate: number;
+}
+export type TimeSeriesPoint = { date: string; count: number };
+export type RevenuePoint    = { date: string; count: number; amount: number };
+export type BySourcePoint   = { source: string; count: number };
+export type ByCountryPoint  = { country: string; count: number };
+export interface ConsoleDashboardCharts {
+  leadsLast30Days:   TimeSeriesPoint[];
+  ordersLast30Days:  RevenuePoint[];
+  inquiriesBySource: BySourcePoint[];
+  topCountries:      ByCountryPoint[];
+}
+export interface ConsoleDashboardSummary {
+  kpis: ConsoleDashboardKPIs;
+  charts: ConsoleDashboardCharts;
+  recent: {
+    inquiries: unknown[];
+    orders:    unknown[];
+    tasks:     unknown[];
+  };
+}
+
+// —— 基础占位实体类型（Phase 2 扩展字段，Phase 1 只为 items 提供类型）——
+export interface ConsoleLead      { id: string; [k: string]: any }
+export interface ConsoleCustomer  { id: string; [k: string]: any }
+export interface ConsoleInquiry   { id: string; [k: string]: any }
+export interface ConsoleQuote     { id: string; [k: string]: any }
+export interface ConsoleOrder     { id: string; [k: string]: any }
+export interface ConsoleFollowUp  { id: string; [k: string]: any }
+export interface ConsoleTask      { id: string; [k: string]: any }
+
+// —— Analytics Overview ——
+export interface ConsoleAnalyticsOverview {
+  period: string;
+  funnels: {
+    leads: number;
+    inquiries: number;
+    quotes: number;
+    orders: number;
+  };
+  bySource:   Array<{ source: string; leads: number; orders: number; revenue: number }>;
+  byCountry:  Array<{ country: string; leads: number; orders: number; revenue: number }>;
+  byProduct:  Array<{ productId: string; sku: string; name: string; orders: number; revenue: number }>;
+  bySalesRep: Array<{ salesRep: string; leads: number; orders: number; revenue: number }>;
+}

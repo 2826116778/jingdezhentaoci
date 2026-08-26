@@ -6,6 +6,7 @@ import Footer from './components/layout/Footer';
 import WhatsAppButton from './components/layout/WhatsAppButton';
 import ToastHost from './components/layout/ToastHost';
 import ProtectedAdminRoute from './components/layout/ProtectedAdminRoute';
+import ProtectedConsoleRoute from './components/layout/ProtectedConsoleRoute';
 import SEO from './components/common/SEO';
 import { Loader2 } from 'lucide-react';
 
@@ -20,13 +21,25 @@ const Contact = lazy(() => import('./pages/Contact'));
 const Checkout = lazy(() => import('./pages/Checkout'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// 后台
+// 后台（CMS：产品/案例/询盘 CRUD + 导出）
 const AdminLogin = lazy(() => import('./pages/admin/Login'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/Products'));
 const AdminCases = lazy(() => import('./pages/admin/Cases'));
 const AdminInquiries = lazy(() => import('./pages/admin/Inquiries'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
+
+// 外贸业务工作台（Phase 1 基础框架 — 9 个模块，不影响 CMS）
+const ConsoleLayout    = lazy(() => import('./pages/console/ConsoleLayout'));
+const ConsoleDashboard = lazy(() => import('./pages/console/Dashboard'));
+const ConsoleLeads     = lazy(() => import('./pages/console/Leads'));
+const ConsoleCustomers = lazy(() => import('./pages/console/Customers'));
+const ConsoleInquiries = lazy(() => import('./pages/console/Inquiries'));
+const ConsoleQuotes    = lazy(() => import('./pages/console/Quotes'));
+const ConsoleOrders    = lazy(() => import('./pages/console/Orders'));
+const ConsoleFollowUps = lazy(() => import('./pages/console/FollowUps'));
+const ConsoleTasks     = lazy(() => import('./pages/console/Tasks'));
+const ConsoleAnalytics = lazy(() => import('./pages/console/Analytics'));
 
 const Loading = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
@@ -47,13 +60,16 @@ const ScrollToTop: React.FC = () => {
 };
 
 /**
- * 前台包裹布局（Navbar / Footer / WhatsApp / Toast）
- * 后台页不走这里（/admin/* 有独立 AdminLayout）
+ * 前台包裹布局（Navbar / Footer / WhatsApp / Toast）。
+ * 后台页面不走这里：
+ *   - /admin/*   有独立 AdminLayout（CMS）
+ *   - /console/* 有独立 ConsoleLayout（外贸业务工作台）
+ * 两者 100% 保留并互相独立。
  */
 const PublicShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const loc = useLocation();
-  const isAdmin = loc.pathname.startsWith('/admin');
-  if (isAdmin) return <>{children}</>;
+  const isAdminShell = loc.pathname.startsWith('/admin') || loc.pathname.startsWith('/console');
+  if (isAdminShell) return <>{children}</>;
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -85,7 +101,7 @@ const App: React.FC = () => {
               <Route path="/checkout/:orderNo?" element={<Checkout />} />
               <Route path="/404" element={<NotFound />} />
 
-              {/* 后台 */}
+              {/* ====== CMS 后台（原 /admin/* 100% 保留）====== */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route
                 path="/admin"
@@ -99,6 +115,28 @@ const App: React.FC = () => {
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="cases" element={<AdminCases />} />
                 <Route path="inquiries" element={<AdminInquiries />} />
+              </Route>
+
+              {/* ====== 外贸业务工作台 /console/*（Phase 1 基础框架 — JWT 保护）====== */}
+              <Route
+                path="/console"
+                element={
+                  <ProtectedConsoleRoute>
+                    <ConsoleLayout />
+                  </ProtectedConsoleRoute>
+                }
+              >
+                {/* /console → 内部重定向到 /console/dashboard（在 ConsoleLayout 里完成） */}
+                <Route index element={<ConsoleDashboard />} />
+                <Route path="dashboard" element={<ConsoleDashboard />} />
+                <Route path="leads"     element={<ConsoleLeads />} />
+                <Route path="customers" element={<ConsoleCustomers />} />
+                <Route path="inquiries" element={<ConsoleInquiries />} />
+                <Route path="quotes"    element={<ConsoleQuotes />} />
+                <Route path="orders"    element={<ConsoleOrders />} />
+                <Route path="followups" element={<ConsoleFollowUps />} />
+                <Route path="tasks"     element={<ConsoleTasks />} />
+                <Route path="analytics" element={<ConsoleAnalytics />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

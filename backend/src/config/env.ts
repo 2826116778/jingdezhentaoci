@@ -58,6 +58,22 @@ export const env = {
   RUN_SEED_ON_BOOT: process.env.RUN_SEED_ON_BOOT || 'true',
   FRONTEND_DIST_PATH: process.env.FRONTEND_DIST_PATH || '../frontend/dist',
 
+  // ========== Rate Limit（集中配置，海外用户勿过低） ==========
+  //  登录：防暴力破解 —— 默认同一 IP 15 次/分钟
+  RATE_LOGIN_WINDOW_MS: parseInt(process.env.RATE_LOGIN_WINDOW_MS || String(60 * 1000), 10),
+  RATE_LOGIN_MAX:      parseInt(process.env.RATE_LOGIN_MAX      || '15', 10),
+  //  询盘：防垃圾提交 —— 默认同一 IP 30 次/分钟（含表单、产品详情、OEM/Contact 多入口）
+  RATE_INQUIRY_WINDOW_MS: parseInt(process.env.RATE_INQUIRY_WINDOW_MS || String(60 * 1000), 10),
+  RATE_INQUIRY_MAX:      parseInt(process.env.RATE_INQUIRY_MAX      || '30', 10),
+  //  订单：防重复创建/重放验证 —— 默认同一 IP 60 次/分钟（创建+Tx验证+轮询详情）
+  RATE_ORDER_WINDOW_MS: parseInt(process.env.RATE_ORDER_WINDOW_MS || String(60 * 1000), 10),
+  RATE_ORDER_MAX:      parseInt(process.env.RATE_ORDER_MAX      || '60', 10),
+  //  上传：防高频写磁盘 —— 默认同一 IP 80 次/分钟（含产品、案例多图）
+  RATE_UPLOAD_WINDOW_MS: parseInt(process.env.RATE_UPLOAD_WINDOW_MS || String(60 * 1000), 10),
+  RATE_UPLOAD_MAX:      parseInt(process.env.RATE_UPLOAD_MAX      || '80', 10),
+  //  统一 429 消息语言
+  RATE_LIMIT_MESSAGE: process.env.RATE_LIMIT_MESSAGE || '请求过于频繁，请稍后再试。 | Too many requests, please try again later.',
+
   // ---- 计算属性 ----
   get usdtContract(): string {
     return this.TRON_NETWORK === 'mainnet' ? this.USDT_CONTRACT_MAINNET : this.USDT_CONTRACT_NILE;

@@ -13,6 +13,7 @@ import cors from 'cors';
 import { env } from './config/env';
 import { connectDB } from './config/db';
 import errorHandler from './middleware/errorHandler';
+import { loginLimiter, inquiryLimiter, orderLimiter, uploadLimiter } from './middleware/rateLimiter';
 
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
@@ -21,6 +22,7 @@ import inquiryRoutes from './routes/inquiries';
 import orderRoutes from './routes/orders';
 import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
+import consoleRoutes from './routes/console';
 import { startPaymentCronJobs } from './jobs/paymentWatcher';
 import { UPLOAD_URL_PREFIX } from './config/upload';
 import { runSeed } from './seed/seedData';
@@ -87,6 +89,7 @@ async function bootstrap() {
   app.use(UPLOAD_URL_PREFIX, express.static(uploadDir, { maxAge: '30d' }));
 
   // 解析 JSON
+  app.set('trust proxy', true); // Nginx / CDN 下读取 X-Forwarded-For，保证 Rate Limit 用真实用户 IP
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
@@ -95,8 +98,14 @@ async function bootstrap() {
     res.json({ code: 0, message: 'ok', data: { service: 'luxeceramics-backend', time: new Date().toISOString(), env: env.NODE_ENV } });
   });
 
-  // 路由挂载（前缀 /api）
+  // 🔒 Rate Limit 统一集中挂载（只在此处挂载，业务 routes 文件不接触任何 rate-limit 配置）
   const prefix = env.API_PREFIX;
+  app.use(`${prefix}/auth/login`, loginLimiter);    // 登录：防爆破
+  app.use(`${prefix}/inquiries`,  inquiryLimiter);  // 询盘：防垃圾提交（含 GET admin 查询复用路径）
+  app.use(`${prefix}/orders`,     orderLimiter);    // 订单：防重复创建 + Tx验证（含 GET 查询详情/轮询）
+  app.use(`${prefix}/upload`,     uploadLimiter);   // 上传：防恶意刷磁盘
+
+  // 路由挂载（前缀 /api）
   app.use(prefix, authRoutes);
   app.use(prefix, productRoutes);
   app.use(prefix, caseRoutes);
@@ -104,6 +113,7 @@ async function bootstrap() {
   app.use(prefix, orderRoutes);
   app.use(prefix, uploadRoutes);
   app.use(prefix, adminRoutes);
+  app.use(`${prefix}/console`, consoleRoutes);   // 外贸业务工作台 — 路由内全局 JWT 保护
 
   // ===== 托管前端 dist（SPA，同源部署）必须放在全局 404 之前 =====
   const frontDist = path.resolve(process.cwd(), env.FRONTEND_DIST_PATH);
