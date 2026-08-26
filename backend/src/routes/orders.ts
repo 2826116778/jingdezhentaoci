@@ -332,38 +332,42 @@ router.patch('/orders/:id/dealer', authJWT(), async (req, res, next) => {
     const order = await Order.findById(req.params.id);
     if (!order) return fail(res, '订单不存在', 404);
     const body = req.body || {};
-    const update: any = {};
+    const update: any = { $set: {} };
 
-    // 用 $set 的 dot-notation 更新嵌套字段，避免子文档 spread 问题
-    const setPatch: any = {};
-    if (body.dealerInfo) {
-      if (body.dealerInfo.company !== undefined) setPatch['dealerInfo.company'] = body.dealerInfo.company;
-      if (body.dealerInfo.whatsapp !== undefined) setPatch['dealerInfo.whatsapp'] = body.dealerInfo.whatsapp;
-      if (body.dealerInfo.country !== undefined) setPatch['dealerInfo.country'] = body.dealerInfo.country;
-      if (body.dealerInfo.website !== undefined) setPatch['dealerInfo.website'] = body.dealerInfo.website;
-      if (body.dealerInfo.adminNotes !== undefined) setPatch['dealerInfo.adminNotes'] = body.dealerInfo.adminNotes;
-      if (body.dealerInfo.tags !== undefined) setPatch['dealerInfo.tags'] = body.dealerInfo.tags;
+    // 构造新的 dealerInfo 字段值（如果请求方提供了 dealerInfo）
+    const patch = body.dealerInfo || {};
+    const hasDealerPatch = Object.keys(patch).length > 0;
+    if (hasDealerPatch) {
+      if (order.dealerInfo === null) {
+        // 策略 A：原来 dealerInfo 为 null → 直接创建完整对象（避免与子路径 $set 冲突）
+        update.$set.dealerInfo = {
+          company: patch.company ?? '',
+          whatsapp: patch.whatsapp ?? '',
+          country: patch.country ?? '',
+          website: patch.website ?? '',
+          adminNotes: patch.adminNotes ?? '',
+          tags: Array.isArray(patch.tags) ? patch.tags : [],
+        };
+      } else {
+        // 策略 B：原来已有 dealerInfo → 使用子字段 dot-notation 精准更新
+        if (patch.company !== undefined) update.$set['dealerInfo.company'] = patch.company;
+        if (patch.whatsapp !== undefined) update.$set['dealerInfo.whatsapp'] = patch.whatsapp;
+        if (patch.country !== undefined) update.$set['dealerInfo.country'] = patch.country;
+        if (patch.website !== undefined) update.$set['dealerInfo.website'] = patch.website;
+        if (patch.adminNotes !== undefined) update.$set['dealerInfo.adminNotes'] = patch.adminNotes;
+        if (patch.tags !== undefined) update.$set['dealerInfo.tags'] = Array.isArray(patch.tags) ? patch.tags : [];
+      }
+      // 同步联系电话（whatsapp）到通用 contactInfo
+      if (patch.whatsapp) update.$set['contactInfo.whatsapp'] = patch.whatsapp;
     }
 
-    // 初始化 dealerInfo（如果之前为 null）
-    if (order.dealerInfo === null && Object.keys(setPatch).length) {
-      update.$set = { ...(update.$set || {}), 'dealerInfo': {} };
+    // 顶层字段（独立于 dealerInfo）
+    if (body.orderType === 'retail' || body.orderType === 'dealer') {
+      update.$set.orderType = body.orderType;
     }
+    if (body.customDemand !== undefined) update.$set.customDemand = body.customDemand;
 
-    // 同步 whatsapp 到 contactInfo
-    if (body.dealerInfo?.whatsapp) {
-      setPatch['contactInfo.whatsapp'] = body.dealerInfo.whatsapp;
-    }
-
-    if (Object.keys(setPatch).length) {
-      update.$set = { ...(update.$set || {}), ...setPatch };
-    }
-
-    // 支持直接修改 orderType
-    if (body.orderType) update.$set = { ...(update.$set || {}), orderType: body.orderType };
-    if (body.customDemand !== undefined) update.$set = { ...(update.$set || {}), customDemand: body.customDemand };
-
-    if (!update.$set || Object.keys(update.$set).length === 0) {
+    if (Object.keys(update.$set).length === 0) {
       return fail(res, '无字段需要更新');
     }
 

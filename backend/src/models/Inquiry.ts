@@ -51,7 +51,7 @@ const InquirySchema = new Schema<IInquiry>({
     default: 'new',
     index: true,
   },
-  source: { type: String, enum: ['contact', 'product', 'quote', 'oem'], default: 'contact', index: true },
+  source: { type: String, enum: ['contact', 'product', 'quote', 'oem', 'website'], default: 'contact', index: true },
 }, { timestamps: true });
 
 InquirySchema.index({ createdAt: -1 });

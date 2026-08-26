@@ -65,14 +65,17 @@ async function bootstrap() {
   // CORS
   app.use(cors({
     origin: (origin, cb) => {
-      // 允许无 origin（移动端/Postman），或匹配白名单
+      // 允许无 origin（移动端/Postman/curl），或匹配白名单
       if (!origin) return cb(null, true);
       const allowed = env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
       // 本地开发 + 任意子域也允许
       if (origin.includes('localhost') || origin.includes('127.0.0.1') || allowed.some(a => origin.startsWith(a))) {
         return cb(null, true);
       }
-      return cb(null, true); // 外贸站 CORS 宽松一些（如果需要生产收紧，注释掉上面两行启用这里的限制）
+      // ⚠️ 安全修复：未知 origin 不再兜底放行
+      // （之前的 return cb(null, true) + credentials:true 会导致跨站任意域携带JWT发起请求，存在CSRF风险）
+      // 如果前端部署域名不是 localhost，请到 backend/.env 把 CORS_ORIGIN 设置为正确的前端域名（多个用 , 分隔）
+      return cb(new Error(`CORS blocked: origin ${origin} not in CORS_ORIGIN whitelist`));
     },
     credentials: true,
     maxAge: 86400,

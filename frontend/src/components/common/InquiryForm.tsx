@@ -44,6 +44,8 @@ const InquiryForm: React.FC<Props> = ({
   const [products, setProducts] = useState<Product[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // 隐私条款：受控勾选（替代原先 defaultChecked，避免 uncontrolled 警告 + 支持提交验证）
+  const [agreePrivacy, setAgreePrivacy] = useState(true);
 
   const openProductList = async () => {
     if (products) return;
@@ -63,6 +65,7 @@ const InquiryForm: React.FC<Props> = ({
     // 基础校验
     if (!form.name || !form.email || !form.whatsapp) return showToast({ type: 'error', text: t('form.required') });
     if (!/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(form.email)) return showToast({ type: 'error', text: t('form.invalid_email') });
+    if (!agreePrivacy) return showToast({ type: 'error', text: t('form.must_agree') || 'Please agree to the Privacy Policy before submitting.' });
     try {
       setLoading(true);
       await Inquiries.submit({
@@ -175,7 +178,12 @@ const InquiryForm: React.FC<Props> = ({
 
       <div className="mt-8 flex items-center justify-between gap-6 flex-wrap">
         <label className="text-xs text-ceramic-ash flex items-center gap-2 cursor-pointer select-none">
-          <input type="checkbox" className="accent-ceramic-gold-matte" defaultChecked />
+          <input
+            type="checkbox"
+            className="accent-ceramic-gold-matte"
+            checked={agreePrivacy}
+            onChange={e => setAgreePrivacy(e.target.checked)}
+          />
           {t('form.agree')}
         </label>
         <button type="submit" className="btn-gold" disabled={loading}>

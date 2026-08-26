@@ -25,6 +25,12 @@ router.post('/inquiries', async (req, res, next) => {
     const { name, email, whatsapp } = body;
     if (!name || !email || !whatsapp) return fail(res, '姓名/邮箱/WhatsApp 为必填项', 400);
 
+    // ⚠️ 安全兜底：若前端传入未知 source（未来的 LinkedIn / Google / 展会 等），一律降级为 contact
+    //    避免 Mongoose enum validation 让公开表单 500 崩溃。后续模型支持时再精准扩展。
+    const validSources = ['contact', 'product', 'quote', 'oem', 'website'];
+    const rawSource = String(body.source || 'contact').trim().toLowerCase();
+    const source = validSources.includes(rawSource) ? rawSource : 'contact';
+
     const inquiry = new Inquiry({
       name, email, whatsapp,
       country: body.country || '',
@@ -34,7 +40,7 @@ router.post('/inquiries', async (req, res, next) => {
       productId: body.productId && Types.ObjectId.isValid(body.productId) ? new Types.ObjectId(body.productId) : undefined,
       productName: body.productName || '',
       status: 'new',
-      source: body.source || 'contact',
+      source,
     });
     await inquiry.save();
 
