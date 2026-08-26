@@ -70,6 +70,13 @@ export interface IOrder extends Document {
   userSubmittedTxHash?: string;
   lastCheckedAt?: Date;
   matchSource?: 'cron-auto' | 'user-trigger';
+
+  // ——— PHASE 2-A 新增：CRM 业务链路关联（均可选，兼容老订单 & 商城订单）———
+  customerId?: Types.ObjectId;   // 关联 Customer（由 Quote 或手动录入生成）
+  inquiryId?: Types.ObjectId;    // 关联 Inquiry
+  quoteId?: Types.ObjectId;      // 关联 Quote（报价单）
+  ownerId?: Types.ObjectId;      // 负责人 Admin（Sales/Superadmin）
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -142,6 +149,12 @@ const OrderSchema = new Schema<IOrder>({
   userSubmittedTxHash: { type: String },
   lastCheckedAt: { type: Date },
   matchSource: { type: String, enum: ['cron-auto', 'user-trigger'] },
+
+  // ——— PHASE 2-A 新增：CRM 关联索引 ———
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', index: true },
+  inquiryId:  { type: Schema.Types.ObjectId, ref: 'Inquiry',  index: true },
+  quoteId:    { type: Schema.Types.ObjectId, ref: 'Quote',    index: true },
+  ownerId:    { type: Schema.Types.ObjectId, ref: 'Admin',    index: true },
 }, { timestamps: true });
 
 // 关键复合索引：加速 cron 扫描 pending + 未过期的订单
@@ -153,6 +166,11 @@ OrderSchema.index(
   { txHash: 1 },
   { unique: true, partialFilterExpression: { txHash: { $exists: true, $type: 'string' } } },
 );
+// PHASE 2-A 新增：CRM 视角常用查询
+OrderSchema.index({ customerId: 1, createdAt: -1 });
+OrderSchema.index({ inquiryId: 1 });
+OrderSchema.index({ quoteId: 1 }, { unique: false });
+OrderSchema.index({ ownerId: 1, paymentStatus: 1 });
 
 export const Order = model<IOrder>('Order', OrderSchema);
 export default Order;

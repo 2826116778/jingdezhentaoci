@@ -278,14 +278,197 @@ export interface ConsoleDashboardSummary {
   };
 }
 
-// —— 基础占位实体类型（Phase 2 扩展字段，Phase 1 只为 items 提供类型）——
-export interface ConsoleLead      { id: string; [k: string]: any }
-export interface ConsoleCustomer  { id: string; [k: string]: any }
-export interface ConsoleInquiry   { id: string; [k: string]: any }
-export interface ConsoleQuote     { id: string; [k: string]: any }
-export interface ConsoleOrder     { id: string; [k: string]: any }
-export interface ConsoleFollowUp  { id: string; [k: string]: any }
-export interface ConsoleTask      { id: string; [k: string]: any }
+// —— Console 实体类型（PHASE 2-A：与后端 Model 对齐，字段严格真实）——
+export interface ConsoleCompany {
+  _id: string; id?: string;
+  name: string; nameEn?: string; nameAr?: string;
+  website: string; country: string; city: string; address: string;
+  industry: string; companyType: string;
+  employeeCount?: number; annualPurchaseValueUsd?: number;
+  profile: string;
+  source: string; sourceUrl?: string;
+  tags: string[]; notes: string;
+  ownerId?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleContact {
+  _id: string; id?: string;
+  companyId?: string; customerId?: string;
+  name: string; jobTitle: string;
+  email: string; phone: string; whatsapp: string; linkedin: string;
+  isPrimary: boolean;
+  notes: string;
+  ownerId?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleLead {
+  _id: string; id?: string;
+  companyName: string;
+  website: string; country: string; city: string;
+  industry: string; companyType: string;
+  contactName: string; jobTitle: string;
+  email: string; phone: string; whatsapp: string; linkedin: string;
+  source: string; sourceUrl: string;
+  productInterest: string[];
+  purchaseIntent: 'none' | 'low' | 'medium' | 'high';
+  estimatedPurchaseVolume: string;
+  score: number; grade: 'A' | 'B' | 'C' | 'D';
+  status: 'NEW' | 'RESEARCHING' | 'QUALIFIED' | 'CONTACTED' | 'REPLIED' | 'INTERESTED' | 'INQUIRY' | 'CONVERTED' | 'LOST';
+  ownerId?: string;
+  customerId?: string; companyId?: string;
+  tags: string[]; notes: string;
+  lastContactAt?: string; nextFollowUpAt?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleCustomer {
+  _id: string; id?: string;
+  companyId: string;
+  customerCode: string;
+  customerLevel: 'PLATINUM' | 'GOLD' | 'SILVER' | 'BRONZE' | 'PROSPECT';
+  status: 'ACTIVE' | 'PENDING' | 'AT_RISK' | 'INACTIVE' | 'CHURNED';
+  source: string;
+  ownerId?: string;
+  score: number;
+  tags: string[]; notes: string;
+  lastContactAt?: string; nextFollowUpAt?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleCustomerDetail extends ConsoleCustomer {
+  company?: ConsoleCompany | null;
+  contacts?: ConsoleContact[];
+  timeline?: ConsoleInteraction[];
+  inquiries?: ConsoleInquiry[];
+  quotes?: ConsoleQuote[];
+  orders?: ConsoleOrder[];
+  followups?: ConsoleFollowUp[];
+  tasks?: ConsoleTask[];
+}
+
+export type FollowUpType = 'EMAIL' | 'WHATSAPP' | 'PHONE' | 'MEETING' | 'SOCIAL' | 'OTHER';
+export type FollowUpStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'OVERDUE';
+
+export interface ConsoleFollowUp {
+  _id: string; id?: string;
+  customerId?: string; leadId?: string; contactId?: string;
+  type: FollowUpType;
+  content: string; result: string; nextAction: string;
+  scheduledAt: string; completedAt?: string;
+  ownerId?: string;
+  status: FollowUpStatus;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export type TaskType = 'FOLLOW_UP' | 'INQUIRY_REPLY' | 'QUOTE_PREPARE' | 'ORDER_FOLLOW' | 'RESEARCH' | 'MEETING' | 'OTHER';
+export type TaskPriority = 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETED' | 'CANCELLED';
+
+export interface ConsoleTask {
+  _id: string; id?: string;
+  title: string; description: string;
+  customerId?: string; leadId?: string;
+  type: TaskType; priority: TaskPriority; status: TaskStatus;
+  dueAt?: string; completedAt?: string;
+  ownerId?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export type InteractionType =
+  | 'LEAD_CREATED' | 'LEAD_CONTACTED' | 'LEAD_REPLIED' | 'LEAD_CONVERTED'
+  | 'EMAIL_SENT' | 'EMAIL_RECEIVED'
+  | 'WHATSAPP_SENT' | 'WHATSAPP_RECEIVED'
+  | 'CALL' | 'MEETING'
+  | 'INQUIRY_CREATED'
+  | 'QUOTE_CREATED' | 'QUOTE_SENT' | 'QUOTE_ACCEPTED' | 'QUOTE_REJECTED'
+  | 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_COMPLETED'
+  | 'FOLLOWUP_CREATED' | 'FOLLOWUP_COMPLETED'
+  | 'TASK_CREATED' | 'TASK_COMPLETED'
+  | 'NOTE' | 'SYSTEM';
+
+export interface ConsoleInteraction {
+  _id: string; id?: string;
+  customerId?: string; leadId?: string; companyId?: string; contactId?: string;
+  type: InteractionType;
+  title: string; content: string;
+  sourceRef?: { model: string; id: string };
+  ownerId?: string;
+  occurredAt: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export type InquiryStage = 'NEW' | 'PROCESSING' | 'QUALIFIED' | 'QUOTED' | 'NEGOTIATING' | 'WON' | 'LOST';
+export type InquiryPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface ConsoleInquiry {
+  _id: string; id?: string;
+  name: string; email: string;
+  phone?: string; whatsapp: string;
+  country?: string; company?: string;
+  quantity?: number; budget?: number;
+  subject?: string; message: string; customDemand: string;
+  productId?: string; productName?: string;
+  status: InquiryStatus;
+  source: 'contact' | 'product' | 'quote' | 'oem' | 'website';
+  // PHASE 2-A 新增
+  stage: InquiryStage;
+  leadId?: string; customerId?: string; companyId?: string; contactId?: string; ownerId?: string;
+  priority: InquiryPriority;
+  estimatedValue?: number; expectedCloseDate?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export type QuoteStatus = 'DRAFT' | 'SENT' | 'VIEWED' | 'NEGOTIATING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+export interface ConsoleQuoteItem {
+  productId?: string; sku: string; name: string;
+  quantity: number; unitPrice: number; amount: number;
+  notes: string;
+  [k: string]: any;
+}
+
+export interface ConsoleQuote {
+  _id: string; id?: string;
+  quoteNo: string;
+  customerId?: string; inquiryId?: string;
+  items: ConsoleQuoteItem[];
+  currency: string;
+  subtotal: number; shippingFee: number; discount: number; tax: number; total: number;
+  incoterm: string; paymentTerms: string;
+  validUntil?: string;
+  status: QuoteStatus;
+  notes: string;
+  createdBy?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleOrder {
+  _id: string; id?: string;
+  orderNo: string;
+  orderType: OrderType;
+  items: OrderItem[];
+  totalAmount: number; usdtAmount: number;
+  contactInfo: ContactInfo;
+  dealerInfo?: DealerInfo;
+  customDemand: string;
+  paymentStatus: PaymentStatus;
+  txHash?: string;
+  paidAt?: string; expiredAt?: string;
+  customerId?: string; inquiryId?: string; quoteId?: string; ownerId?: string;
+  createdAt: string; updatedAt: string;
+  [k: string]: any;
+}
 
 // —— Analytics Overview ——
 export interface ConsoleAnalyticsOverview {

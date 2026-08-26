@@ -1,47 +1,73 @@
 /**
- * PHASE 1 外贸业务工作台 — 前端统一 Console API Layer
+ * PHASE 2-A 外贸业务工作台 — 前端统一 Console API Layer（真实 CRUD）
  *
- * 架构（Frontend → API Layer → Backend → MongoDB）：
+ * 架构：
  *   前端 9 pages  ──▶  import { Console } from '@/api/console'  ──▶  axios (baseURL=/api) + JWT 拦截器  ──▶  /api/console/*
  *
- * 业务页（dashboard/leads/.../analytics）**禁止** 直接写 axios 请求，
- * 必须统一通过本 Console 命名空间调用 —— 方便 Phase 2+ 加缓存、重试、错误追踪。
+ * 业务页禁止直接写 axios；所有请求统一走 Console 命名空间。
  *
- * 所有方法返回类型都对齐 backend/src/routes/console.ts：
+ * 所有方法返回类型对齐 backend/src/routes/console.ts：
  *   list  → ConsolePage<T>  { items, total, page, pageSize, totalPages }
- *   me    → ConsoleMe       { id, username, role, avatar, ... }
- *   dash  → ConsoleDashboardSummary
- *   analytics → ConsoleAnalyticsOverview
+ *   crud  → T
  */
-import { get } from '..';
+import { get, post, patch, del } from '..';
 import type {
   ConsolePage,
   ConsoleMe,
   ConsoleDashboardSummary,
   ConsoleLead,
   ConsoleCustomer,
+  ConsoleCustomerDetail,
+  ConsoleCompany,
+  ConsoleContact,
   ConsoleInquiry,
   ConsoleQuote,
   ConsoleOrder,
   ConsoleFollowUp,
   ConsoleTask,
+  ConsoleInteraction,
   ConsoleAnalyticsOverview,
 } from '../../types';
 
-// ---------- 查询参数（Phase 1 只传 page/pageSize，Phase 2 扩展 filters / sort / search）----------
+// ---------- List 参数（PHASE 2-A：支持 search / filter / sort / pagination）----------
 export type ConsoleListParams = Partial<{
   page: number;
   pageSize: number;
   search: string;
   status: string;
+  stage: string;
+  source: string;
+  country: string;
+  industry: string;
+  grade: string;
+  minScore: number;
+  maxScore: number;
+  customerLevel: string;
+  ownerId: string;
+  priority: string;
   sort: string;
   order: 'asc' | 'desc';
+  view: string;   // FollowUp: today/upcoming/completed/overdue  Task: todo/done/overdue
+  // 关联过滤
+  customerId: string;
+  companyId: string;
+  leadId: string;
+  contactId: string;
+  inquiryId: string;
+  quoteId: string;
+  paymentStatus: string;
+  orderNo: string;
 }>;
 
 const DEFAULT_PARAMS: ConsoleListParams = { page: 1, pageSize: 20 };
+const listParams = (p?: ConsoleListParams): ConsoleListParams => ({ ...DEFAULT_PARAMS, ...(p || {}) });
 
-const page = <T>(url: string, p?: ConsoleListParams) =>
-  get<ConsolePage<T>>(url, { ...DEFAULT_PARAMS, ...p });
+// 列表统一封装
+const $list = <T>(url: string, p?: ConsoleListParams) => get<ConsolePage<T>>(url, listParams(p));
+const $detail = <T>(url: string) => get<T | null>(url);
+const $create = <T>(url: string, d: any) => post<T>(url, d);
+const $update = <T>(url: string, d: any) => patch<T>(url, d);
+const $remove = <T>(url: string) => del<T>(url);
 
 export const Console = {
   // ---------- 当前登录控制台管理员信息 ----------
@@ -50,33 +76,71 @@ export const Console = {
   // ---------- Dashboard ----------
   dashboardSummary: () => get<ConsoleDashboardSummary>('/console/dashboard/summary'),
 
-  // ---------- Leads（潜在客户） ----------
-  listLeads:       (p?: ConsoleListParams) => page<ConsoleLead>('/console/leads', p),
-  leadDetail:      (id: string)            => get<ConsoleLead | null>(`/console/leads/${id}`),
+  // ---------- Leads（潜在客户）：搜索/筛选/分页 + 增删改查 + 改状态/评分 + 转换Customer ----------
+  listLeads:        (p?: ConsoleListParams) => $list<ConsoleLead>('/console/leads', p),
+  leadDetail:       (id: string)            => $detail<ConsoleLead>(`/console/leads/${id}`),
+  createLead:       (d: Partial<ConsoleLead>)  => $create<ConsoleLead>('/console/leads', d),
+  updateLead:       (id: string, d: Partial<ConsoleLead>) => $update<ConsoleLead>(`/console/leads/${id}`, d),
+  deleteLead:       (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/leads/${id}`),
+  convertLead:      (id: string, d?: { customerLevel?: 'PLATINUM'|'GOLD'|'SILVER'|'BRONZE'|'PROSPECT' }) =>
+    post<{ lead: any; customer: ConsoleCustomer; company: ConsoleCompany; contact: ConsoleContact }>(`/console/leads/${id}/convert`, d || {}),
 
-  // ---------- Customers（成交客户） ----------
-  listCustomers:   (p?: ConsoleListParams) => page<ConsoleCustomer>('/console/customers', p),
-  customerDetail:  (id: string)            => get<ConsoleCustomer | null>(`/console/customers/${id}`),
+  // ---------- Customers ----------
+  listCustomers:    (p?: ConsoleListParams) => $list<ConsoleCustomer>('/console/customers', p),
+  customerDetail:   (id: string)            => $detail<ConsoleCustomerDetail>(`/console/customers/${id}`),
+  createCustomer:   (d: Partial<ConsoleCustomer> & { company?: string; website?: string; country?: string; industry?: string }) =>
+    $create<ConsoleCustomer>('/console/customers', d),
+  updateCustomer:   (id: string, d: Partial<ConsoleCustomer>) => $update<ConsoleCustomer>(`/console/customers/${id}`, d),
+  deleteCustomer:   (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/customers/${id}`),
+  addCustomerFollowup: (id: string, d: Partial<ConsoleFollowUp>) =>
+    $create<ConsoleFollowUp>(`/console/customers/${id}/followup`, d),
 
-  // ---------- Inquiries（业务工作台视角，解耦公开询盘提交接口） ----------
-  listInquiries:   (p?: ConsoleListParams) => page<ConsoleInquiry>('/console/inquiries', p),
-  inquiryDetail:   (id: string)            => get<ConsoleInquiry | null>(`/console/inquiries/${id}`),
+  // ---------- Companies ----------
+  listCompanies:    (p?: ConsoleListParams) => $list<ConsoleCompany>('/console/companies', p),
+  companyDetail:    (id: string)            => $detail<ConsoleCompany>(`/console/companies/${id}`),
+  createCompany:    (d: Partial<ConsoleCompany>) => $create<ConsoleCompany>('/console/companies', d),
+  updateCompany:    (id: string, d: Partial<ConsoleCompany>) => $update<ConsoleCompany>(`/console/companies/${id}`, d),
 
-  // ---------- Quotes（报价单） ----------
-  listQuotes:      (p?: ConsoleListParams) => page<ConsoleQuote>('/console/quotes', p),
-  quoteDetail:     (id: string)            => get<ConsoleQuote | null>(`/console/quotes/${id}`),
+  // ---------- Contacts ----------
+  listContacts:     (p?: ConsoleListParams) => $list<ConsoleContact>('/console/contacts', p),
+  contactDetail:    (id: string)            => $detail<ConsoleContact>(`/console/contacts/${id}`),
+  createContact:    (d: Partial<ConsoleContact>) => $create<ConsoleContact>('/console/contacts', d),
+  updateContact:    (id: string, d: Partial<ConsoleContact>) => $update<ConsoleContact>(`/console/contacts/${id}`, d),
 
-  // ---------- Orders（业务工作台视角，解耦商城下单接口） ----------
-  listOrders:      (p?: ConsoleListParams) => page<ConsoleOrder>('/console/orders', p),
-  orderDetail:     (id: string)            => get<ConsoleOrder | null>(`/console/orders/${id}`),
+  // ---------- FollowUps ----------
+  listFollowUps:    (p?: ConsoleListParams) => $list<ConsoleFollowUp>('/console/followups', p),
+  followUpDetail:   (id: string)            => $detail<ConsoleFollowUp>(`/console/followups/${id}`),
+  createFollowUp:   (d: Partial<ConsoleFollowUp>) => $create<ConsoleFollowUp>('/console/followups', d),
+  updateFollowUp:   (id: string, d: Partial<ConsoleFollowUp>) => $update<ConsoleFollowUp>(`/console/followups/${id}`, d),
+  deleteFollowUp:   (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/followups/${id}`),
 
-  // ---------- FollowUps（跟进记录） ----------
-  listFollowUps:   (p?: ConsoleListParams) => page<ConsoleFollowUp>('/console/followups', p),
-  followUpDetail:  (id: string)            => get<ConsoleFollowUp | null>(`/console/followups/${id}`),
+  // ---------- Tasks ----------
+  listTasks:        (p?: ConsoleListParams) => $list<ConsoleTask>('/console/tasks', p),
+  taskDetail:       (id: string)            => $detail<ConsoleTask>(`/console/tasks/${id}`),
+  createTask:       (d: Partial<ConsoleTask>) => $create<ConsoleTask>('/console/tasks', d),
+  updateTask:       (id: string, d: Partial<ConsoleTask>) => $update<ConsoleTask>(`/console/tasks/${id}`, d),
+  deleteTask:       (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/tasks/${id}`),
 
-  // ---------- Tasks（任务） ----------
-  listTasks:       (p?: ConsoleListParams) => page<ConsoleTask>('/console/tasks', p),
-  taskDetail:      (id: string)            => get<ConsoleTask | null>(`/console/tasks/${id}`),
+  // ---------- Interactions (Timeline) ----------
+  listInteractions: (p?: ConsoleListParams) => $list<ConsoleInteraction>('/console/interactions', p),
+
+  // ---------- Inquiries ----------
+  listInquiries:    (p?: ConsoleListParams) => $list<ConsoleInquiry>('/console/inquiries', p),
+  inquiryDetail:    (id: string)            => $detail<ConsoleInquiry>(`/console/inquiries/${id}`),
+  createInquiry:    (d: Partial<ConsoleInquiry>) => $create<ConsoleInquiry>('/console/inquiries', d),
+  updateInquiry:    (id: string, d: Partial<ConsoleInquiry>) => $update<ConsoleInquiry>(`/console/inquiries/${id}`, d),
+
+  // ---------- Quotes ----------
+  listQuotes:       (p?: ConsoleListParams) => $list<ConsoleQuote>('/console/quotes', p),
+  quoteDetail:      (id: string)            => $detail<ConsoleQuote>(`/console/quotes/${id}`),
+  createQuote:      (d: Partial<ConsoleQuote>) => $create<ConsoleQuote>('/console/quotes', d),
+  updateQuote:      (id: string, d: Partial<ConsoleQuote>) => $update<ConsoleQuote>(`/console/quotes/${id}`, d),
+  convertQuoteToOrder: (id: string) => post<ConsoleOrder>(`/console/quotes/${id}/convert-order`, {}),
+
+  // ---------- Orders ----------
+  listOrders:       (p?: ConsoleListParams) => $list<ConsoleOrder>('/console/orders', p),
+  orderDetail:      (id: string)            => $detail<ConsoleOrder>(`/console/orders/${id}`),
+  updateOrder:      (id: string, d: Partial<ConsoleOrder>) => $update<ConsoleOrder>(`/console/orders/${id}`, d),
 
   // ---------- Analytics ----------
   analyticsOverview: () => get<ConsoleAnalyticsOverview>('/console/analytics/overview'),
