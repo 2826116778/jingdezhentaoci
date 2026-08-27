@@ -27,6 +27,16 @@ import type {
   ConsoleTask,
   ConsoleInteraction,
   ConsoleAnalyticsOverview,
+  // PHASE 2-B: Customer Acquisition
+  ConsoleLeadCampaign,
+  ConsoleLeadImport,
+  ConsoleLeadImportRow,
+  ConsoleMessageTemplate,
+  ConsoleDevelopmentTask,
+  ConsoleMarketConfig,
+  ConsoleDevelopmentOverview,
+  ConsoleLeadScoreResult,
+  ConsoleAcquisitionAnalytics,
 } from '../../types';
 
 // ---------- List 参数（PHASE 2-A：支持 search / filter / sort / pagination）----------
@@ -38,13 +48,20 @@ export type ConsoleListParams = Partial<{
   stage: string;
   source: string;
   country: string;
+  city: string;
   industry: string;
+  companyType: string;
+  productInterest: string;
   grade: string;
   minScore: number;
   maxScore: number;
   customerLevel: string;
   ownerId: string;
   priority: string;
+  channel: string;
+  language: string;
+  campaignId: string;
+  importId: string;
   sort: string;
   order: 'asc' | 'desc';
   view: string;   // FollowUp: today/upcoming/completed/overdue  Task: todo/done/overdue
@@ -144,6 +161,84 @@ export const Console = {
 
   // ---------- Analytics ----------
   analyticsOverview: () => get<ConsoleAnalyticsOverview>('/console/analytics/overview'),
+
+  // ====================================================================
+  // PHASE 2-B —— 海外客户开发中心 (Customer Acquisition)
+  //   路由前缀: /console/development/*
+  //   后端实现: backend/src/routes/development.ts
+  //   命名空间: Console.Development.*
+  // ====================================================================
+  Development: {
+    // ----- 1. Overview（开发中心首页概览）-----
+    overview: () => get<ConsoleDevelopmentOverview>('/console/development/overview'),
+
+    // ----- 2. Campaigns（开发活动）-----
+    listCampaigns:    (p?: ConsoleListParams) => $list<ConsoleLeadCampaign>('/console/development/campaigns', p),
+    campaignDetail:   (id: string)            => $detail<ConsoleLeadCampaign>(`/console/development/campaigns/${id}`),
+    createCampaign:   (d: Partial<ConsoleLeadCampaign>)  => $create<ConsoleLeadCampaign>('/console/development/campaigns', d),
+    updateCampaign:   (id: string, d: Partial<ConsoleLeadCampaign>) => $update<ConsoleLeadCampaign>(`/console/development/campaigns/${id}`, d),
+    deleteCampaign:   (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/development/campaigns/${id}`),
+
+    // ----- 3. Lead Import Wizard（导入：Upload → Map → Validate → Commit）-----
+    // 3.1 上传：rawData 已是 JSON 数组（CSV/Excel 已在前端解析完成）
+    uploadImport: (d: {
+      fileName: string;
+      fileType: 'csv' | 'xlsx' | 'json';
+      fileSize?: number;
+      rawData: Record<string, any>[];
+      campaignId?: string;
+      duplicateStrategy?: 'SKIP' | 'UPDATE' | 'CREATE_ANYWAY';
+    }) => post<{ importId: string; totalRows: number; preview: Record<string, any>[] }>('/console/development/imports/upload', d),
+
+    // 3.2 字段映射：将原始列名映射到 Lead 字段
+    mapImport: (id: string, fieldMapping: Record<string, string>) =>
+      post<{ importId: string; fieldMapping: Record<string, string>; preview: Record<string, any>[] }>(`/console/development/imports/${id}/map`, { fieldMapping }),
+
+    // 3.3 校验 + 去重检测
+    validateImport: (id: string) =>
+      post<{ importId: string; totalRows: number; validRows: number; invalidRows: number; duplicateRows: number; rows: ConsoleLeadImportRow[] }>(`/console/development/imports/${id}/validate`, {}),
+
+    // 3.4 提交导入（按 duplicateStrategy 写入 Lead + Interaction）
+    commitImport: (id: string) =>
+      post<{ total: number; imported: number; updated: number; skipped: number; failed: number; status: string }>(`/console/development/imports/${id}/commit`, {}),
+
+    // 3.5 列表 / 详情
+    listImports:  (p?: ConsoleListParams) => $list<ConsoleLeadImport>('/console/development/imports', p),
+    importDetail: (id: string)            => $detail<ConsoleLeadImport>(`/console/development/imports/${id}`),
+
+    // ----- 4. Lead Scoring（评分 0-100 + Grade A/B/C/D + Reasons）-----
+    scoreLead:  (leadId: string) => post<ConsoleLeadScoreResult>(`/console/development/scoring/score/${leadId}`, {}),
+    batchScore: (leadIds: string[]) =>
+      post<{ scored: number; results: ConsoleLeadScoreResult[] }>(`/console/development/scoring/batch`, { leadIds }),
+
+    // ----- 5. Lead 批量操作（分配/改状态/改分级/加标签/创建开发任务/删除）-----
+    batchLeads: (leadIds: string[], action: string, payload: Record<string, any> = {}) =>
+      post<{ affected?: number; taskId?: string }>(`/console/development/leads/batch`, { leadIds, action, payload }),
+
+    // ----- 6. Message Templates（开发话术：First Contact / Follow-up / Inquiry / Quote）-----
+    listTemplates:    (p?: ConsoleListParams) => $list<ConsoleMessageTemplate>('/console/development/templates', p),
+    templateDetail:   (id: string)            => $detail<ConsoleMessageTemplate>(`/console/development/templates/${id}`),
+    createTemplate:   (d: Partial<ConsoleMessageTemplate>)  => $create<ConsoleMessageTemplate>('/console/development/templates', d),
+    updateTemplate:   (id: string, d: Partial<ConsoleMessageTemplate>) => $update<ConsoleMessageTemplate>(`/console/development/templates/${id}`, d),
+    deleteTemplate:   (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/development/templates/${id}`),
+    previewTemplate:  (id: string, variables: Record<string, any>) =>
+      post<{ subject: string; content: string }>(`/console/development/templates/${id}/preview`, { variables }),
+
+    // ----- 7. Development Tasks（开发任务 + 漏斗）-----
+    listTasks:    (p?: ConsoleListParams) => $list<ConsoleDevelopmentTask>('/console/development/tasks', p),
+    taskDetail:   (id: string)            => $detail<ConsoleDevelopmentTask>(`/console/development/tasks/${id}`),
+    createTask:   (d: Partial<ConsoleDevelopmentTask>)  => $create<ConsoleDevelopmentTask>('/console/development/tasks', d),
+    updateTask:   (id: string, d: Partial<ConsoleDevelopmentTask>) => $update<ConsoleDevelopmentTask>(`/console/development/tasks/${id}`, d),
+    deleteTask:   (id: string)            => $remove<{ deleted: boolean; id: string }>(`/console/development/tasks/${id}`),
+
+    // ----- 8. Market Config（国家优先级 / 城市 / 默认产品推荐 — DB 配置，不硬编码）-----
+    listMarkets:    ()                              => get<ConsoleMarketConfig[]>('/console/development/markets'),
+    createMarket:   (d: Partial<ConsoleMarketConfig>)  => $create<ConsoleMarketConfig>('/console/development/markets', d),
+    updateMarket:   (id: string, d: Partial<ConsoleMarketConfig>) => $update<ConsoleMarketConfig>(`/console/development/markets/${id}`, d),
+
+    // ----- 9. Analytics（按 Campaign/Source/Country 漏斗 + 来源质量评分）-----
+    acquisitionAnalytics: () => get<ConsoleAcquisitionAnalytics>('/console/development/analytics'),
+  },
 };
 
 export default Console;

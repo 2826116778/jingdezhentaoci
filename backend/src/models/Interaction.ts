@@ -5,7 +5,7 @@
  * 可选地 attach 一个 sourceId（如 followUpId / quoteId / orderId / taskId）用于跳转详情。
  */
 import { Schema, model, Document, Types } from 'mongoose';
-import { INTERACTION_TYPES, InteractionType } from '../types/crm';
+import { INTERACTION_TYPES_2B } from '../types/crm';
 
 export interface IInteraction extends Document {
   _id: Types.ObjectId;
@@ -16,7 +16,8 @@ export interface IInteraction extends Document {
   companyId?: Types.ObjectId;
   contactId?: Types.ObjectId;
 
-  type: InteractionType;
+  // PHASE 2-B：枚举扩展为 INTERACTION_TYPES_2B（含 LEAD_IMPORTED / LEAD_SCORED 等）
+  type: typeof INTERACTION_TYPES_2B[number];
 
   title: string;
   content: string;
@@ -43,7 +44,7 @@ const InteractionSchema = new Schema<IInteraction>(
     companyId:  { type: Schema.Types.ObjectId, ref: 'Company',  index: true },
     contactId:  { type: Schema.Types.ObjectId, ref: 'Contact',  index: true },
 
-    type: { type: String, enum: INTERACTION_TYPES, required: true, index: true },
+    type: { type: String, enum: INTERACTION_TYPES_2B, required: true, index: true },
 
     title:   { type: String, default: '' },
     content: { type: String, default: '' },

@@ -39,7 +39,7 @@ const CustomerSchema = new Schema<ICustomer>(
     customerLevel: { type: String, enum: CUSTOMER_LEVELS, default: 'PROSPECT', index: true },
     status:        { type: String, enum: CUSTOMER_STATUSES, default: 'PENDING', index: true },
 
-    source:  { type: String, enum: LEAD_SOURCES, default: 'manual', index: true },
+    source:  { type: String, default: 'manual', index: true },
     ownerId: { type: Schema.Types.ObjectId, ref: 'Admin', index: true },
 
     score: { type: Number, min: 0, max: 100, default: 0, index: true },

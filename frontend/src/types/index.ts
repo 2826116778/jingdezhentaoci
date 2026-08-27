@@ -323,6 +323,34 @@ export interface ConsoleLead {
   tags: string[]; notes: string;
   lastContactAt?: string; nextFollowUpAt?: string;
   createdAt: string; updatedAt: string;
+  // ===== PHASE 2-B 海外客户开发中心扩展 =====
+  // 多社交平台
+  instagram?: string;
+  facebook?: string;
+  xHandle?: string;       // X / Twitter
+  tiktok?: string;
+  // 评分原因（0-100 算法生成）
+  scoreReasons?: string[];
+  // 追溯：来自哪次 Import / 哪个 Campaign
+  importId?: string;
+  campaignId?: string;
+  // 客户研究（MANUAL_RESEARCH / IMPORTED_DATA / AI_RESEARCH）
+  researchType?: 'MANUAL_RESEARCH' | 'IMPORTED_DATA' | 'AI_RESEARCH';
+  researchNotes?: string;
+  // 列表页常用扩展
+  [k: string]: any;
+}
+
+export interface ConsoleLeadDetail extends ConsoleLead {
+  // 详情聚合：FollowUps / Interactions / Timeline
+  followups?: ConsoleFollowUp[];
+  interactions?: ConsoleInteraction[];
+  timeline?: ConsoleInteraction[];
+  campaign?: ConsoleLeadCampaign | null;
+  import?: ConsoleLeadImport | null;
+  customer?: ConsoleCustomer | null;
+  company?: ConsoleCompany | null;
+  contact?: ConsoleContact | null;
   [k: string]: any;
 }
 
@@ -483,4 +511,153 @@ export interface ConsoleAnalyticsOverview {
   byCountry:  Array<{ country: string; leads: number; orders: number; revenue: number }>;
   byProduct:  Array<{ productId: string; sku: string; name: string; orders: number; revenue: number }>;
   bySalesRep: Array<{ salesRep: string; leads: number; orders: number; revenue: number }>;
+}
+
+// =========================
+// PHASE 2-B: Overseas Customer Development Center
+// =========================
+
+export interface ConsoleLeadCampaign {
+  _id: string;
+  name: string;
+  description: string;
+  countries: string[];
+  cities: string[];
+  industries: string[];
+  companyTypes: string[];
+  productInterests: string[];
+  targetLeadCount: number;
+  actualLeadCount: number;
+  ownerId?: string;
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED';
+  startDate?: string;
+  endDate?: string;
+  imported?: number;
+  qualified?: number;
+  contacted?: number;
+  replied?: number;
+  interested?: number;
+  inquiry?: number;
+  converted?: number;
+  lost?: number;
+  funnel?: LeadFunnel;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+export interface LeadFunnel {
+  imported: number;
+  qualified: number;
+  contacted: number;
+  replied: number;
+  interested: number;
+  inquiry: number;
+  converted: number;
+  lost: number;
+}
+
+export interface ConsoleLeadImport {
+  _id: string;
+  fileName: string;
+  fileType: 'csv' | 'xlsx' | 'json';
+  fileSize: number;
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  importedRows: number;
+  fieldMapping?: Record<string, string>;
+  duplicateStrategy: 'SKIP' | 'UPDATE' | 'CREATE_ANYWAY';
+  campaignId?: string;
+  status: 'UPLOADED' | 'PARSED' | 'MAPPED' | 'VALIDATED' | 'IMPORTING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  errorMsg?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleLeadImportRow {
+  _id: string;
+  importId: string;
+  rowIndex: number;
+  data: Record<string, any>;
+  status: 'VALID' | 'INVALID' | 'DUPLICATE' | 'IMPORTED' | 'SKIPPED' | 'UPDATED';
+  errors: string[];
+  duplicateLeadId?: string;
+  importedLeadId?: string;
+  [k: string]: any;
+}
+
+export interface ConsoleMessageTemplate {
+  _id: string;
+  name: string;
+  channel: 'EMAIL' | 'WHATSAPP' | 'LINKEDIN' | 'OTHER';
+  language: string;
+  subject: string;
+  content: string;
+  variables: string[];
+  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleDevelopmentTask {
+  _id: string;
+  title: string;
+  description: string;
+  campaignId?: string;
+  leadIds: string[];
+  ownerId?: string;
+  assignedTo?: string[];
+  type: string;
+  priority: 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETED' | 'CANCELLED';
+  dueAt?: string;
+  completedAt?: string;
+  totalLeads?: number;
+  funnel?: LeadFunnel;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+export interface ConsoleMarketConfig {
+  _id: string;
+  countryCode: string;
+  countryName: string;
+  priority: number;
+  isActive: boolean;
+  cities: string[];
+  defaultProductInterests: string[];
+  notes: string;
+  [k: string]: any;
+}
+
+export interface ConsoleDevelopmentOverview {
+  totalCampaigns: number;
+  activeCampaigns: number;
+  totalImports: number;
+  totalLeads: number;
+  totalDevTasks: number;
+  funnel: LeadFunnel;
+  topCountries: Array<{ country: string; count: number }>;
+  topSources: Array<{ source: string; count: number }>;
+}
+
+export interface ConsoleLeadScoreResult {
+  leadId: string;
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D';
+  reasons: string[];
+}
+
+export interface ConsoleAcquisitionAnalytics {
+  funnel: LeadFunnel & { conversionRate: number };
+  byCampaign: Array<{ campaignId: string; campaignName: string; leads: number; qualified: number; contacted: number; replied: number; interested?: number; inquiry: number; converted: number; lost?: number; conversionRate: number; replyRate?: number; inquiryRate?: number; orderRate?: number }>;
+  bySource: Array<{ source: string; leads: number; contacted: number; replied: number; inquiry: number; converted: number; replyRate: number; inquiryRate: number; orderRate: number }>;
+  byCountry: Array<{ country: string; leads: number; qualified: number; contacted: number; replied: number; inquiry: number; converted: number; conversionRate: number }>;
 }

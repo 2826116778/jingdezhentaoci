@@ -41,6 +41,17 @@ const ConsoleFollowUps = lazy(() => import('./pages/console/FollowUps'));
 const ConsoleTasks     = lazy(() => import('./pages/console/Tasks'));
 const ConsoleAnalytics = lazy(() => import('./pages/console/Analytics'));
 
+// PHASE 2-B 海外客户开发中心 — Customer Acquisition
+const LeadDiscovery    = lazy(() => import('./pages/console/development/LeadDiscovery'));
+const LeadImportWizard = lazy(() => import('./pages/console/development/LeadImportWizard'));
+const ProspectLists    = lazy(() => import('./pages/console/development/ProspectLists'));
+const DevelopmentTasks  = lazy(() => import('./pages/console/development/DevelopmentTasks'));
+const LeadScoring       = lazy(() => import('./pages/console/development/LeadScoring'));
+const AcquisitionAnalytics = lazy(() => import('./pages/console/development/AcquisitionAnalytics'));
+const LeadDetail        = lazy(() => import('./pages/console/development/LeadDetail'));
+const MessageTemplates   = lazy(() => import('./pages/console/development/MessageTemplates'));
+const MarketConfigPage  = lazy(() => import('./pages/console/development/MarketConfigPage'));
+
 const Loading = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <div className="flex flex-col items-center gap-3">
@@ -130,6 +141,10 @@ const App: React.FC = () => {
                 <Route index element={<ConsoleDashboard />} />
                 <Route path="dashboard" element={<ConsoleDashboard />} />
                 <Route path="leads"     element={<ConsoleLeads />} />
+                <Route path="leads/import"   element={<LeadImportWizard />} />
+                <Route path="leads/lists"    element={<ProspectLists />} />
+                <Route path="leads/scoring"  element={<LeadScoring />} />
+                <Route path="leads/:id"      element={<LeadDetail />} />
                 <Route path="customers" element={<ConsoleCustomers />} />
                 <Route path="inquiries" element={<ConsoleInquiries />} />
                 <Route path="quotes"    element={<ConsoleQuotes />} />
@@ -137,6 +152,12 @@ const App: React.FC = () => {
                 <Route path="followups" element={<ConsoleFollowUps />} />
                 <Route path="tasks"     element={<ConsoleTasks />} />
                 <Route path="analytics" element={<ConsoleAnalytics />} />
+                {/* PHASE 2-B 海外客户开发中心 */}
+                <Route path="development"        element={<LeadDiscovery />} />
+                <Route path="development/tasks"  element={<DevelopmentTasks />} />
+                <Route path="development/templates" element={<MessageTemplates />} />
+                <Route path="development/markets"   element={<MarketConfigPage />} />
+                <Route path="analytics/acquisition" element={<AcquisitionAnalytics />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

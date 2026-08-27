@@ -48,15 +48,15 @@ const CompanySchema = new Schema<ICompany>(
     city:    { type: String, default: '' },
     address: { type: String, default: '' },
 
-    industry:    { type: String, enum: INDUSTRIES, default: 'other', index: true },
-    companyType: { type: String, enum: COMPANY_TYPES, default: 'other', index: true },
+    industry:    { type: String, default: 'other', index: true },
+    companyType: { type: String, default: 'other', index: true },
 
     employeeCount:        { type: Number },
     annualPurchaseValueUsd: { type: Number },
 
     profile: { type: String, default: '' },
 
-    source:    { type: String, enum: LEAD_SOURCES, default: 'manual', index: true },
+    source:    { type: String, default: 'manual', index: true },
     sourceUrl: { type: String, default: '' },
 
     tags:  { type: [String], default: [] },

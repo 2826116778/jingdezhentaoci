@@ -234,4 +234,160 @@ export type OwnerRole = typeof OWNER_ROLES[number];
 export const CODE_PREFIXES = {
   QUOTE:    'QT',
   CUSTOMER: 'CU',
-};
+  CAMPAIGN: 'CMP',
+  IMPORT:   'IMP',
+  DEVTASK:  'DEV',
+  SCORING:  'SCR',
+} as const;
+
+// =========================
+// PHASE 2-B: Lead Discovery / 客户开发中心
+// =========================
+
+// Campaign 状态
+export const CAMPAIGN_STATUSES = [
+  'DRAFT',
+  'ACTIVE',
+  'PAUSED',
+  'COMPLETED',
+  'ARCHIVED',
+] as const;
+export type CampaignStatus = typeof CAMPAIGN_STATUSES[number];
+
+// Import 状态
+export const IMPORT_STATUSES = [
+  'UPLOADED',    // 文件已上传，待解析
+  'PARSED',      // 解析完成，待映射
+  'MAPPED',      // 字段映射完成，待校验
+  'VALIDATED',   // 校验+去重完成，待确认
+  'IMPORTING',   // 正在写入数据库
+  'COMPLETED',   // 导入完成
+  'FAILED',      // 导入失败
+  'CANCELLED',   // 用户取消
+] as const;
+export type ImportStatus = typeof IMPORT_STATUSES[number];
+
+// Import Row 状态（单行）
+export const IMPORT_ROW_STATUSES = [
+  'VALID',       // 有效，可导入
+  'INVALID',     // 数据格式错误
+  'DUPLICATE',   // 与已有 Lead 重复
+  'IMPORTED',    // 已成功写入
+  'SKIPPED',     // 用户选择跳过
+  'UPDATED',     // 更新了已有 Lead
+] as const;
+export type ImportRowStatus = typeof IMPORT_ROW_STATUSES[number];
+
+// 重复处理策略
+export const DUPLICATE_STRATEGIES = [
+  'SKIP',          // 跳过
+  'UPDATE',        // 更新已有 Lead
+  'CREATE_ANYWAY', // 强制新建
+] as const;
+export type DuplicateStrategy = typeof DUPLICATE_STRATEGIES[number];
+
+// 扩展 Lead 来源（PHASE 2-B 新增更多渠道）
+export const LEAD_SOURCES_EXTENDED = [
+  ...LEAD_SOURCES,
+  'facebook',
+  'tiktok',
+  'x',
+  'made_in_china',
+  'global_sources',
+  'trade_show',
+  'csv_import',
+  'excel_import',
+  'cold_email',
+  'whatsapp',
+] as const;
+
+// Message Template channel
+export const TEMPLATE_CHANNELS = [
+  'EMAIL',
+  'WHATSAPP',
+  'LINKEDIN',
+  'OTHER',
+] as const;
+export type TemplateChannel = typeof TEMPLATE_CHANNELS[number];
+
+// Message Template status
+export const TEMPLATE_STATUSES = [
+  'ACTIVE',
+  'DRAFT',
+  'ARCHIVED',
+] as const;
+export type TemplateStatus = typeof TEMPLATE_STATUSES[number];
+
+// 陶瓷产品兴趣分类（PHASE 2-B：前端下拉与 Lead 评分匹配用）
+export const PRODUCT_INTERESTS = [
+  'Tableware',
+  'Dinnerware',
+  'Tea Set',
+  'Coffee Set',
+  'Hotelware',
+  'Home Decor',
+  'Vases',
+  'Giftware',
+  'Art Ceramics',
+  'Custom Ceramics',
+  'OEM',
+  'ODM',
+] as const;
+export type ProductInterest = typeof PRODUCT_INTERESTS[number];
+
+// 行业（PHASE 2-B：与 INDUSTRIES 兼容，但面向海外客户更细化的行业标签）
+export const TARGET_INDUSTRIES = [
+  'Hotel',
+  'Restaurant',
+  'Hospitality',
+  'Interior Design',
+  'Architecture',
+  'Home Decor',
+  'Ceramic Distributor',
+  'Ceramic Wholesaler',
+  'Importer',
+  'Retailer',
+  'Gift',
+  'Tea',
+  'Coffee',
+  'Furniture',
+  'Luxury',
+  'Real Estate',
+] as const;
+
+// 客户类型（PHASE 2-B：与 COMPANY_TYPES 兼容，更面向海外买家）
+export const TARGET_COMPANY_TYPES = [
+  'Importer',
+  'Distributor',
+  'Wholesaler',
+  'Retailer',
+  'Hotel',
+  'Restaurant',
+  'Cafe',
+  'Interior Designer',
+  'Architect',
+  'Trading Company',
+  'Brand',
+  'E-commerce',
+  'Gift Company',
+] as const;
+
+// 研究来源类型（区分数据是手动调研还是导入数据）
+export const RESEARCH_TYPES = [
+  'MANUAL_RESEARCH',
+  'IMPORTED_DATA',
+  'AI_RESEARCH',
+] as const;
+export type ResearchType = typeof RESEARCH_TYPES[number];
+
+// Interaction Types 扩展（PHASE 2-B 新增）
+export const INTERACTION_TYPES_2B = [
+  ...INTERACTION_TYPES,
+  'LEAD_IMPORTED',
+  'CAMPAIGN_CREATED',
+  'CAMPAIGN_UPDATED',
+  'LEAD_SCORED',
+  'LEAD_ASSIGNED',
+  'DEV_TASK_CREATED',
+  'DEV_TASK_UPDATED',
+] as const;

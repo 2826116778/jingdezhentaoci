@@ -21,6 +21,8 @@ import {
   // 主导航
   LayoutDashboard, Users2, UserCheck, MessageSquare, FileText,
   ShoppingCart, MessageCircle, ListTodo, BarChart3,
+  // PHASE 2-B 新增导航图标
+  Compass, Upload, ListChecks, Target, Gauge,
   // UI
   Search, Bell, Menu, X, ChevronDown, LogOut, Settings,
   // 装饰 / 辅助
@@ -30,10 +32,17 @@ import {
 import { useAuth, useApp } from '../../context/AppContext';
 import { Admin } from '../../api';
 
-// ====== 控制台导航（严格对齐 9 个后端 stub，Phase 2 可在数组末加爬虫/AI）======
+// ====== 控制台导航（严格对齐后端 stub；PHASE 2-B 在末尾追加 Customer Acquisition）======
 interface NavItem { to: string; label: string; Icon: LucideIcon; tag?: string; group?: string; }
 const NAV: NavItem[] = [
   { group: 'Overview',   to: '/console/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  // ===== PHASE 2-B: Customer Acquisition =====
+  { group: 'Customer Acquisition', to: '/console/development',          label: 'Lead Discovery',   Icon: Compass     },
+  { group: 'Customer Acquisition', to: '/console/leads/import',         label: 'Lead Import',      Icon: Upload      },
+  { group: 'Customer Acquisition', to: '/console/leads/lists',          label: 'Prospect Lists',   Icon: ListChecks  },
+  { group: 'Customer Acquisition', to: '/console/development/tasks',   label: 'Development Tasks', Icon: Target    },
+  { group: 'Customer Acquisition', to: '/console/leads/scoring',       label: 'Lead Scoring',     Icon: Gauge       },
+  // ===== 原导航保持 =====
   { group: 'Customers',  to: '/console/leads',     label: 'Leads',     Icon: Users2 },
   { group: 'Customers',  to: '/console/customers', label: 'Customers', Icon: UserCheck },
   { group: 'Operations', to: '/console/inquiries', label: 'Inquiries', Icon: MessageSquare },
@@ -45,15 +54,21 @@ const NAV: NavItem[] = [
 ];
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
-  dashboard: { title: 'Dashboard',   sub: 'Sales, leads & operations overview' },
-  leads:     { title: 'Leads',       sub: 'Potential overseas customers (Phase 2: LinkedIn / Google / Instagram crawlers)' },
-  customers: { title: 'Customers',   sub: 'Converted customers & company profiles' },
-  inquiries:{ title: 'Inquiries',    sub: 'All inbound inquiries from website / OEM / sales channels' },
-  quotes:    { title: 'Quotes',      sub: 'Quotation drafts and sent proposals' },
-  orders:    { title: 'Orders',      sub: 'Paid, pending, and historical orders (business view)' },
-  followups: { title: 'Follow-Ups',  sub: 'Communication log per lead / inquiry / quote' },
-  tasks:     { title: 'Tasks',       sub: 'To-dos assigned to you and the sales team' },
-  analytics: { title: 'Analytics',   sub: 'Funnels, source attribution, sales rep performance' },
+  dashboard:    { title: 'Dashboard',   sub: 'Sales, leads & operations overview' },
+  leads:        { title: 'Leads',       sub: 'Potential overseas customers (Phase 2: LinkedIn / Google / Instagram crawlers)' },
+  customers:    { title: 'Customers',   sub: 'Converted customers & company profiles' },
+  inquiries:    { title: 'Inquiries',   sub: 'All inbound inquiries from website / OEM / sales channels' },
+  quotes:       { title: 'Quotes',      sub: 'Quotation drafts and sent proposals' },
+  orders:       { title: 'Orders',      sub: 'Paid, pending, and historical orders (business view)' },
+  followups:    { title: 'Follow-Ups',  sub: 'Communication log per lead / inquiry / quote' },
+  tasks:        { title: 'Tasks',       sub: 'To-dos assigned to you and the sales team' },
+  analytics:    { title: 'Analytics',   sub: 'Funnels, source attribution, sales rep performance' },
+  // PHASE 2-B
+  development:  { title: 'Lead Discovery',         sub: 'Find, qualify and develop overseas ceramic buyers' },
+  'leads/import':       { title: 'Lead Import',    sub: 'Upload, map, validate and dedupe prospect lists' },
+  'leads/lists':        { title: 'Prospect Lists', sub: 'Manage prospect lists by country / industry / source' },
+  'development/tasks':  { title: 'Development Tasks', sub: 'Campaign-driven development tasks and funnels' },
+  'leads/scoring':      { title: 'Lead Scoring',   sub: 'Score leads 0-100, grade A/B/C/D, with reasons' },
 };
 
 const ConsoleLayout: React.FC = () => {
@@ -84,9 +99,15 @@ const ConsoleLayout: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // pageKey：优先精确匹配整段相对路径（leads/import / development/tasks），
+  // 兜底使用第一段（leads / customers / dashboard），保证不丢标题。
   const pageKey = useMemo(() => {
-    const s = loc.pathname.split('/')[2] || 'dashboard';
-    return s;
+    const segs = loc.pathname.replace(/^\/+/, '').split('/');
+    // segs[0] === 'console'
+    const rest = segs.slice(1); // e.g. ['leads','import'] / ['development','tasks'] / ['dashboard']
+    if (!rest.length || !rest[0]) return 'dashboard';
+    const two = rest.slice(0, 2).join('/');
+    return PAGE_TITLES[two] ? two : rest[0];
   }, [loc.pathname]);
   const page = PAGE_TITLES[pageKey] ?? PAGE_TITLES.dashboard;
 
