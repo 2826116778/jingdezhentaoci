@@ -37,6 +37,22 @@ import type {
   ConsoleDevelopmentOverview,
   ConsoleLeadScoreResult,
   ConsoleAcquisitionAnalytics,
+  // PHASE 2-C: AI Customer Research & Development
+  AIResearchJob,
+  AIResearchProfile,
+  AIActionLog,
+  AIUsageSummary,
+  AIDashboardSummary,
+  AIProviderInfo,
+  AIBudget,
+  AIRsultBundle,
+  AIScoreResult,
+  AIProductMatchResult,
+  AIStrategyResult,
+  AIMessageDraftResult,
+  AIBulkResearchResult,
+  AIMessageDraft,
+  AIProductMatch,
 } from '../../types';
 
 // ---------- List 参数（PHASE 2-A：支持 search / filter / sort / pagination）----------
@@ -238,6 +254,76 @@ export const Console = {
 
     // ----- 9. Analytics（按 Campaign/Source/Country 漏斗 + 来源质量评分）-----
     acquisitionAnalytics: () => get<ConsoleAcquisitionAnalytics>('/console/development/analytics'),
+  },
+
+  // ====================================================================
+  // PHASE 2-C —— AI 海外客户研究 & 开发助手
+  //   路由前缀: /console/ai/*
+  //   后端实现: backend/src/routes/ai.ts
+  //   命名空间: Console.AI.*
+  // ====================================================================
+  AI: {
+    // ----- §12-14 Customer Research -----
+    researchLead:   (leadId: string, force?: boolean) =>
+      post<AIResearchJob>(`/console/ai/research/${leadId}`, { force: !!force }),
+    getResearch:    (leadId: string) =>
+      get<AIRsultBundle>(`/console/ai/research/${leadId}`),
+    retryResearch:  (leadId: string) =>
+      post<AIResearchJob>(`/console/ai/research/${leadId}/retry`, {}),
+
+    // ----- §28 Edit Research Profile (manual edit keeps aiSnapshot) -----
+    editProfile:    (leadId: string, d: Record<string, any>) =>
+      patch<AIResearchProfile>(`/console/ai/profile/${leadId}`, d),
+
+    // ----- §8 Lead Qualification (Intent + AI Score) -----
+    scoreLead:      (leadId: string, force?: boolean) =>
+      post<AIScoreResult>(`/console/ai/score/${leadId}`, { force: !!force }),
+
+    // ----- §10-11 Product Match -----
+    productMatch:      (leadId: string, force?: boolean) =>
+      post<AIProductMatchResult>(`/console/ai/product-match/${leadId}`, { force: !!force }),
+    getProductMatches: (leadId: string) =>
+      get<AIProductMatch[]>(`/console/ai/product-match/${leadId}`),
+
+    // ----- §21 Development Strategy -----
+    generateStrategy: (leadId: string, force?: boolean) =>
+      post<AIStrategyResult>(`/console/ai/strategy/${leadId}`, { force: !!force }),
+    getStrategy:      (leadId: string) =>
+      get<AIStrategyResult['strategy'] | null>(`/console/ai/strategy/${leadId}`),
+
+    // ----- §22-25 Message Draft -----
+    generateMessage: (leadId: string, d: { language: 'en'|'ar'|'zh'; channel: 'EMAIL'|'WHATSAPP'|'LINKEDIN'|'OTHER'; purpose: 'FIRST_CONTACT'|'FOLLOW_UP'|'INQUIRY_FOLLOW_UP'|'QUOTE_FOLLOW_UP'|'REACTIVATION' }) =>
+      post<AIMessageDraftResult>(`/console/ai/message/${leadId}`, d),
+    listMessageDrafts: (leadId: string, p?: ConsoleListParams) =>
+      $list<AIMessageDraft>(`/console/ai/message-drafts/${leadId}`, p),
+    editMessageDraft:   (draftId: string, d: Record<string, any>) =>
+      patch<AIMessageDraft>(`/console/ai/message-drafts/${draftId}`, d),
+    approveMessageDraft: (draftId: string) =>
+      post<AIMessageDraft>(`/console/ai/message-drafts/${draftId}/approve`, {}),
+    rejectMessageDraft:  (draftId: string, reason?: string) =>
+      post<AIMessageDraft>(`/console/ai/message-drafts/${draftId}/reject`, { reason: reason || '' }),
+
+    // ----- §42 Jobs -----
+    listJobs:   (p?: ConsoleListParams) => $list<AIResearchJob>('/console/ai/jobs', p),
+    jobDetail:  (id: string)            => $detail<AIResearchJob>(`/console/ai/jobs/${id}`),
+    cancelJob:  (id: string)            => post<AIResearchJob>(`/console/ai/jobs/${id}/cancel`, {}),
+
+    // ----- §32 Bulk Research (needs confirm=true) -----
+    bulkResearch: (leadIds: string[], confirm = false) =>
+      post<AIBulkResearchResult>('/console/ai/bulk/research', { leadIds, confirm }),
+
+    // ----- §30/§43 Usage & Budget -----
+    getUsage:  ()               => get<AIUsageSummary>('/console/ai/usage'),
+    getBudget: (leadId?: string) => get<AIBudget>(leadId ? `/console/ai/budget?leadId=${leadId}` : '/console/ai/budget'),
+
+    // ----- §29 Audit Log -----
+    listAudit: (p?: ConsoleListParams) => $list<AIActionLog>('/console/ai/audit', p),
+
+    // ----- §41 Dashboard -----
+    dashboard: () => get<AIDashboardSummary>('/console/ai/dashboard'),
+
+    // ----- Provider info -----
+    getProvider: () => get<AIProviderInfo>('/console/ai/provider'),
   },
 };
 

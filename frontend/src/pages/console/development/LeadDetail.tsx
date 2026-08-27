@@ -70,7 +70,7 @@ const LeadDetail: React.FC = () => {
   const researchLabel: Record<string, string> = {
     MANUAL_RESEARCH: 'Manual Research',
     IMPORTED_DATA: 'Imported Data',
-    AI_RESEARCH: 'AI Research (future)',
+    AI_RESEARCH: 'AI Research',
   };
   const researchCls: Record<string, string> = {
     MANUAL_RESEARCH: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -114,6 +114,7 @@ const LeadDetail: React.FC = () => {
               } catch (e: any) { showToast({ type: 'error', text: e?.message || 'Score failed' }); }
             }} className="btn-gold-outline !px-4 !py-2 text-[12px]"><Sparkles size={13} className="inline mr-1" /> Re-score</button>
             <button onClick={() => setShowContactModal(true)} className="btn-gold-outline !px-4 !py-2 text-[12px]"><MessageCircle size={13} className="inline mr-1" /> Contact Lead</button>
+            <Link to={`/console/leads/${id}/research`} className="btn-gold !px-4 !py-2 text-[12px] inline-flex items-center"><Sparkles size={13} className="inline mr-1" /> AI Research</Link>
             {lead.status !== 'CONVERTED' && (
               <button onClick={() => setShowConvert(true)} className="btn-gold !px-4 !py-2 text-[12px]"><ArrowRightLeft size={13} className="inline mr-1" /> Convert to Customer</button>
             )}

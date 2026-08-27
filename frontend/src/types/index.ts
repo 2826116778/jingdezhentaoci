@@ -661,3 +661,240 @@ export interface ConsoleAcquisitionAnalytics {
   bySource: Array<{ source: string; leads: number; contacted: number; replied: number; inquiry: number; converted: number; replyRate: number; inquiryRate: number; orderRate: number }>;
   byCountry: Array<{ country: string; leads: number; qualified: number; contacted: number; replied: number; inquiry: number; converted: number; conversionRate: number }>;
 }
+
+// ====================================================================
+// PHASE 2-C AI 海外客户研究 & 开发助手
+// ====================================================================
+
+/** §2 置信度 — AI 不得伪造信息：未知字段必须 UNKNOWN */
+export type AIConfidence = 'CONFIRMED' | 'INFERRED' | 'UNKNOWN';
+
+/** §2 AI 研究字段封装：值 + 置信度 + 原因 */
+export interface AIField<T> {
+  value: T;
+  confidence: AIConfidence;
+  reason?: string;
+}
+
+/** §15 AI 研究来源 — 禁止制造 URL */
+export interface AISourceRef {
+  url: string;
+  title: string;
+  sourceType: string;
+  retrievedAt?: string;
+}
+
+/** §5 AI 研究结果 Profile */
+export interface AIResearchProfile {
+  _id: string;
+  leadId: string;
+  jobId?: string;
+  companySummary: AIField<string>;
+  businessModel: AIField<string>;
+  industry: AIField<string>;
+  companyType: AIField<string>;
+  marketPosition: AIField<string>;
+  targetCustomers: AIField<string[]>;
+  productCategories: AIField<string[]>;
+  potentialNeeds: AIField<string[]>;
+  possibleCeramicDemand: AIField<string>;
+  purchaseSignals: AIField<string[]>;
+  riskSignals: AIField<string[]>;
+  recommendedProducts: AIField<string[]>;
+  recommendedApproach: AIField<string>;
+  confidence: number;
+  sources: AISourceRef[];
+  researchStatus: 'AI_RESEARCH' | 'MANUAL_EDIT' | 'STALE';
+  editSource: 'AI' | 'MANUALLY_EDITED' | 'IMPORTED';
+  aiSnapshot?: any;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+/** §4 AI 研究任务 Job */
+export interface AIResearchJob {
+  _id: string;
+  leadId: string;
+  purpose: 'CUSTOMER_RESEARCH' | 'LEAD_QUALIFICATION' | 'PRODUCT_MATCHING' | 'DEVELOPMENT_STRATEGY' | 'MESSAGE_DRAFT';
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  provider: string;
+  aiModel: string;
+  promptVersion: string;
+  inputSnapshot: any;
+  result?: any;
+  confidence?: number;
+  sources?: AISourceRef[];
+  error?: string;
+  errorKind?: string;
+  tokenUsage?: { input: number; output: number; total: number };
+  estimatedCostUsd?: number;
+  startedAt?: string;
+  completedAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+/** §7 采购意向 */
+export interface AIPurchaseIntent {
+  score: number;
+  grade: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+  reasons: string[];
+  risks: string[];
+}
+
+/** §8 AI Lead 评分（复合） */
+export interface AILeadScore {
+  ruleScore: number;
+  aiScore: number;
+  purchaseIntent: number;
+  dataCompleteness: number;
+  finalScore: number;
+  reasons: string[];
+  risks: string[];
+}
+
+/** §11 产品匹配 */
+export interface AIProductMatch {
+  productId: string;
+  matchScore: number;
+  reason: string;
+  confidence: AIConfidence;
+  [k: string]: any;
+}
+
+/** §21 开发策略 */
+export interface AIDevelopmentStrategy {
+  targetPersona: AIField<string>;
+  painPoints: AIField<string[]>;
+  potentialProducts: AIField<string[]>;
+  recommendedValueProposition: AIField<string>;
+  recommendedChannel: AIField<string>;
+  recommendedTiming: AIField<string>;
+  followUpStrategy: AIField<string>;
+  confidence: number;
+  sources: AISourceRef[];
+  [k: string]: any;
+}
+
+/** §22 AI 话术草稿 */
+export interface AIMessageDraft {
+  _id: string;
+  leadId: string;
+  jobId?: string;
+  language: 'en' | 'ar' | 'zh';
+  channel: 'EMAIL' | 'WHATSAPP' | 'LINKEDIN' | 'OTHER';
+  purpose: 'FIRST_CONTACT' | 'FOLLOW_UP' | 'INQUIRY_FOLLOW_UP' | 'QUOTE_FOLLOW_UP' | 'REACTIVATION';
+  subject: string;
+  content: string;
+  personalization: string[];
+  reason: string;
+  status: 'DRAFT' | 'EDITED' | 'APPROVED' | 'REJECTED' | 'SENT';
+  aiSnapshot?: any;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+/** §29 AI 审计日志 */
+export interface AIActionLog {
+  _id: string;
+  userId?: string;
+  leadId?: string;
+  jobId?: string;
+  action: string;
+  provider: string;
+  aiModel: string;
+  promptVersion?: string;
+  status: 'OK' | 'FAILED' | 'CANCELLED';
+  tokenUsage?: { input: number; output: number; total: number };
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
+  [k: string]: any;
+}
+
+/** §30 AI 用量统计 */
+export interface AIUsageSummary {
+  today: { requests: number; tokens: number; cost: number; failed: number };
+  thisWeek: { requests: number; tokens: number; cost: number; failed: number };
+  thisMonth: { requests: number; tokens: number; cost: number; failed: number };
+  total: { requests: number; tokens: number; cost: number; failed: number };
+}
+
+/** §41 AI Dashboard 概览 */
+export interface AIDashboardSummary {
+  jobs: { total: number; completed: number; failed: number; queued: number; running: number };
+  aiLeads: number;
+  highIntentLeads: number;
+  messageDrafts: { total: number; approved: number };
+  usage: AIUsageSummary;
+  recentJobs: AIResearchJob[];
+  provider: { active: string; model: string; isConfigured: boolean };
+}
+
+/** §43 AI Provider 元信息 */
+export interface AIProviderInfo {
+  active: string;
+  isConfigured: boolean;
+  model: string;
+  timeoutMs: number;
+  concurrency: number;
+  limits: { daily: number; monthly: number; perLead: number };
+}
+
+/** §31 AI 预算状态 */
+export interface AIBudget {
+  daily: number;
+  monthly: number;
+  perLead: number;
+  limits: { daily: number; monthly: number; perLead: number };
+  blocked?: boolean;
+  message?: string;
+}
+
+/** §12 研究查询响应 */
+export interface AIRsultBundle {
+  profile: AIResearchProfile | null;
+  latestJob: AIResearchJob | null;
+  latestFailedJob: AIResearchJob | null;
+  hasCompleted: boolean;
+  canRefresh: boolean;
+}
+
+/** §8 评分查询响应 */
+export interface AIScoreResult {
+  lead: any;
+  intent: AIPurchaseIntent;
+  score: AILeadScore;
+  job: AIResearchJob;
+}
+
+/** §10 产品匹配响应 */
+export interface AIProductMatchResult {
+  matches: AIProductMatch[];
+  job: AIResearchJob;
+}
+
+/** §21 策略响应 */
+export interface AIStrategyResult {
+  strategy: AIDevelopmentStrategy | null;
+  job: AIResearchJob;
+}
+
+/** §25 消息草稿响应 */
+export interface AIMessageDraftResult {
+  draft: any;
+  doc: AIMessageDraft;
+  job: AIResearchJob;
+}
+
+/** §32 批量研究响应 */
+export interface AIBulkResearchResult {
+  queued: number;
+  jobs: AIResearchJob[];
+  confirmRequired?: boolean;
+  message?: string;
+}

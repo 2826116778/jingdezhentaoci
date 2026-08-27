@@ -23,6 +23,8 @@ import {
   ShoppingCart, MessageCircle, ListTodo, BarChart3,
   // PHASE 2-B 新增导航图标
   Compass, Upload, ListChecks, Target, Gauge,
+  // PHASE 2-C 新增导航图标
+  Brain, Zap, ClipboardList,
   // UI
   Search, Bell, Menu, X, ChevronDown, LogOut, Settings,
   // 装饰 / 辅助
@@ -42,6 +44,10 @@ const NAV: NavItem[] = [
   { group: 'Customer Acquisition', to: '/console/leads/lists',          label: 'Prospect Lists',   Icon: ListChecks  },
   { group: 'Customer Acquisition', to: '/console/development/tasks',   label: 'Development Tasks', Icon: Target    },
   { group: 'Customer Acquisition', to: '/console/leads/scoring',       label: 'Lead Scoring',     Icon: Gauge       },
+  // ===== PHASE 2-C: AI Customer Research =====
+  { group: 'AI Research',  to: '/console/ai',       label: 'AI Dashboard', Icon: Brain    },
+  { group: 'AI Research',  to: '/console/ai/jobs',  label: 'AI Jobs',      Icon: ClipboardList },
+  { group: 'AI Research',  to: '/console/ai/usage', label: 'AI Usage',    Icon: Zap      },
   // ===== 原导航保持 =====
   { group: 'Customers',  to: '/console/leads',     label: 'Leads',     Icon: Users2 },
   { group: 'Customers',  to: '/console/customers', label: 'Customers', Icon: UserCheck },
@@ -69,6 +75,10 @@ const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   'leads/lists':        { title: 'Prospect Lists', sub: 'Manage prospect lists by country / industry / source' },
   'development/tasks':  { title: 'Development Tasks', sub: 'Campaign-driven development tasks and funnels' },
   'leads/scoring':      { title: 'Lead Scoring',   sub: 'Score leads 0-100, grade A/B/C/D, with reasons' },
+  // PHASE 2-C
+  ai:                { title: 'AI Dashboard',  sub: 'AI customer research, scoring, and usage overview' },
+  'ai/jobs':          { title: 'AI Jobs',       sub: 'Research jobs: queued, running, completed, failed' },
+  'ai/usage':         { title: 'AI Usage',      sub: 'Token usage, estimated cost, and budget limits' },
 };
 
 const ConsoleLayout: React.FC = () => {
@@ -240,11 +250,11 @@ const ConsoleLayout: React.FC = () => {
             <span className="ms-auto text-[10px] tracking-luxury uppercase text-ceramic-ash">Soon</span>
           </button>
           <button
-            onClick={() => showToast({ type: 'info', text: 'AI assistant ships in Phase 2.' })}
+            onClick={() => nav('/console/ai')}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[2px] text-ceramic-graphite/70 hover:bg-ceramic-cream/60 border border-dashed border-ceramic-border"
           >
             <Sparkles size={16} /> AI Assistant
-            <span className="ms-auto text-[10px] tracking-luxury uppercase text-ceramic-ash">Soon</span>
+            <span className="ms-auto text-[10px] tracking-luxury uppercase text-ceramic-gold-matte">Active</span>
           </button>
         </div>
       </aside>

@@ -35,6 +35,7 @@ import Inquiry, { IInquiry } from '../models/Inquiry';
 import Order, { IOrder } from '../models/Order';
 import { env } from '../config/env';
 import developmentRoutes from './development';
+import aiRoutes from './ai';
 
 const router = Router();
 
@@ -43,6 +44,9 @@ router.use(authJWT());
 
 // ============ PHASE 2-B 客户开发中心子路由（继承上方全局 authJWT 保护） ============
 router.use('/development', developmentRoutes);
+
+// ============ PHASE 2-C AI 海外客户研究 & 开发助手子路由 ============
+router.use('/ai', aiRoutes);
 
 // ---------- 工具 ----------
 const ok = <T>(res: any, data: T, message = 'ok') =>

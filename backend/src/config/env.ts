@@ -74,6 +74,28 @@ export const env = {
   //  统一 429 消息语言
   RATE_LIMIT_MESSAGE: process.env.RATE_LIMIT_MESSAGE || '请求过于频繁，请稍后再试。 | Too many requests, please try again later.',
 
+  // ========== PHASE 2-C AI ==========
+  //  §3 OPENAI_API_KEY 不能写死在代码
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  OPENAI_API_BASE: process.env.OPENAI_API_BASE || 'https://api.openai.com/v1',
+  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  //  §51 默认 Provider — 未配置 OPENAI_API_KEY 强制 Mock
+  AI_PROVIDER: (process.env.AI_PROVIDER as 'mock' | 'openai') || 'mock',
+  //  §52 超时（默认 60s）
+  AI_TIMEOUT_MS: parseInt(process.env.AI_TIMEOUT_MS || '60000', 10),
+  //  §31 预算保护：每日 / 每月 / 单 Lead 每日
+  AI_DAILY_REQUEST_LIMIT: parseInt(process.env.AI_DAILY_REQUEST_LIMIT || '200', 10),
+  AI_MONTHLY_REQUEST_LIMIT: parseInt(process.env.AI_MONTHLY_REQUEST_LIMIT || '3000', 10),
+  AI_PER_LEAD_DAILY_LIMIT: parseInt(process.env.AI_PER_LEAD_DAILY_LIMIT || '5', 10),
+  //  §33 队列并发 + 重试
+  AI_CONCURRENCY: parseInt(process.env.AI_CONCURRENCY || '3', 10),
+  AI_MAX_RETRIES: parseInt(process.env.AI_MAX_RETRIES || '3', 10),
+  //  §38 / §39 Mock provider 占位模型标识
+  AI_MOCK_MODEL_ID: process.env.AI_MOCK_MODEL_ID || 'mock-researcher-v1',
+  //  OpenAI 估算单价（USD / 1K tokens）用于成本统计
+  AI_OPENAI_INPUT_PRICE_PER_1K: parseFloat(process.env.AI_OPENAI_INPUT_PRICE_PER_1K || '0.00015'),
+  AI_OPENAI_OUTPUT_PRICE_PER_1K: parseFloat(process.env.AI_OPENAI_OUTPUT_PRICE_PER_1K || '0.0006'),
+
   // ---- 计算属性 ----
   get usdtContract(): string {
     return this.TRON_NETWORK === 'mainnet' ? this.USDT_CONTRACT_MAINNET : this.USDT_CONTRACT_NILE;

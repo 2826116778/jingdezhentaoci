@@ -52,6 +52,12 @@ const LeadDetail        = lazy(() => import('./pages/console/development/LeadDet
 const MessageTemplates   = lazy(() => import('./pages/console/development/MessageTemplates'));
 const MarketConfigPage  = lazy(() => import('./pages/console/development/MarketConfigPage'));
 
+// PHASE 2-C AI 海外客户研究 & 开发助手
+const AIDashboard  = lazy(() => import('./pages/console/ai/AIDashboard'));
+const AIJobs       = lazy(() => import('./pages/console/ai/AIJobs'));
+const AIUsage      = lazy(() => import('./pages/console/ai/AIUsage'));
+const LeadResearch = lazy(() => import('./pages/console/ai/LeadResearch'));
+
 const Loading = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <div className="flex flex-col items-center gap-3">
@@ -145,6 +151,11 @@ const App: React.FC = () => {
                 <Route path="leads/lists"    element={<ProspectLists />} />
                 <Route path="leads/scoring"  element={<LeadScoring />} />
                 <Route path="leads/:id"      element={<LeadDetail />} />
+                <Route path="leads/:id/research" element={<LeadResearch />} />
+                {/* PHASE 2-C AI 海外客户研究 & 开发助手 */}
+                <Route path="ai"       element={<AIDashboard />} />
+                <Route path="ai/jobs"  element={<AIJobs />} />
+                <Route path="ai/usage" element={<AIUsage />} />
                 <Route path="customers" element={<ConsoleCustomers />} />
                 <Route path="inquiries" element={<ConsoleInquiries />} />
                 <Route path="quotes"    element={<ConsoleQuotes />} />
