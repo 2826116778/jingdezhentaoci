@@ -391,3 +391,64 @@ export const INTERACTION_TYPES_2B = [
   'DEV_TASK_CREATED',
   'DEV_TASK_UPDATED',
 ] as const;
+
+// =========================
+// PHASE 3-A: Lead Development Lifecycle（独立于 Lead.status 的开发状态机）
+// 设计原则：不破坏 PHASE 2-A/2-B 已有的 Lead.status 枚举与逻辑；
+// 新增独立字段 Lead.devStatus 用于跟踪 AI 客户开发流程。
+// =========================
+export const DEV_STATUSES = [
+  'NEW',                    // 新线索，未开始 AI 开发
+  'RESEARCHING',            // AI Research 进行中
+  'RESEARCHED',             // AI Research 完成
+  'QUALIFIED',              // AI Qualification 完成
+  'CONTACT_READY',          // Message Draft 已人工批准，可发起联系
+  'CONTACTED',              // 已发起首次联系（人工标记，禁止 AI 自动发送）
+  'REPLIED',                // 对方已回复
+  'FOLLOW_UP',              // 进入 Follow-up 阶段
+  'QUALIFIED_OPPORTUNITY',  // 已确认为有效商机
+  'QUOTE_READY',            // 准备发报价
+  'WON',                    // 成交
+  'LOST',                   // 丢失 / 无效（终态）
+] as const;
+export type DevStatus = typeof DEV_STATUSES[number];
+
+/**
+ * 受控状态转换图。
+ * key = 当前状态；value = 允许跳转的下一状态集合。
+ * 未列出的转换一律拒绝（INVALID_TRANSITION）。
+ * 终态：WON / LOST 不可再转换。
+ */
+export const DEV_TRANSITIONS: Record<DevStatus, DevStatus[]> = {
+  NEW:                    ['RESEARCHING', 'LOST'],
+  RESEARCHING:            ['RESEARCHED', 'LOST'],
+  RESEARCHED:             ['QUALIFIED', 'RESEARCHING', 'LOST'],
+  QUALIFIED:              ['CONTACT_READY', 'LOST'],
+  CONTACT_READY:          ['CONTACTED', 'LOST'],
+  CONTACTED:              ['REPLIED', 'LOST'],
+  REPLIED:                ['FOLLOW_UP', 'LOST'],
+  FOLLOW_UP:              ['QUALIFIED_OPPORTUNITY', 'LOST'],
+  QUALIFIED_OPPORTUNITY:  ['QUOTE_READY', 'LOST'],
+  QUOTE_READY:            ['WON', 'LOST'],
+  WON:                    [],
+  LOST:                   [],
+};
+
+/** 是否允许从 from 转到 to */
+export function canTransition(from: DevStatus, to: DevStatus): boolean {
+  if (from === to) return false;
+  const allowed = DEV_TRANSITIONS[from] ?? [];
+  return allowed.includes(to);
+}
+
+/**
+ * AI 动作 → 期望的 devStatus 后置状态（用于 AI 完成后自动推进）。
+ * 注意：自动推进只发生在"前置状态满足 + AI 成功"时；失败不推进。
+ */
+export const AI_ACTION_NEXT_STATUS: Record<string, DevStatus> = {
+  CUSTOMER_RESEARCH:    'RESEARCHED',
+  LEAD_QUALIFICATION:   'QUALIFIED',
+  PRODUCT_MATCHING:     'RESEARCHED',     // 不强制推进，保持 RESEARCHED
+  DEVELOPMENT_STRATEGY:  'RESEARCHED',     // 同上
+  MESSAGE_DRAFT:        'CONTACT_READY',  // 仅在 message 被 approve 后推进（见 approve 路由）
+};

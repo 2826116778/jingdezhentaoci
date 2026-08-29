@@ -25,6 +25,8 @@ import {
   Compass, Upload, ListChecks, Target, Gauge,
   // PHASE 2-C 新增导航图标
   Brain, Zap, ClipboardList,
+  // PHASE 3-A 新增导航图标
+  Workflow,
   // UI
   Search, Bell, Menu, X, ChevronDown, LogOut, Settings,
   // 装饰 / 辅助
@@ -48,6 +50,8 @@ const NAV: NavItem[] = [
   { group: 'AI Research',  to: '/console/ai',       label: 'AI Dashboard', Icon: Brain    },
   { group: 'AI Research',  to: '/console/ai/jobs',  label: 'AI Jobs',      Icon: ClipboardList },
   { group: 'AI Research',  to: '/console/ai/usage', label: 'AI Usage',    Icon: Zap      },
+  // ===== PHASE 3-A: AI Customer Development =====
+  { group: 'AI Research',  to: '/console/ai/development', label: 'AI Development', Icon: Workflow, tag: '3-A' },
   // ===== 原导航保持 =====
   { group: 'Customers',  to: '/console/leads',     label: 'Leads',     Icon: Users2 },
   { group: 'Customers',  to: '/console/customers', label: 'Customers', Icon: UserCheck },
@@ -79,6 +83,8 @@ const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   ai:                { title: 'AI Dashboard',  sub: 'AI customer research, scoring, and usage overview' },
   'ai/jobs':          { title: 'AI Jobs',       sub: 'Research jobs: queued, running, completed, failed' },
   'ai/usage':         { title: 'AI Usage',      sub: 'Token usage, estimated cost, and budget limits' },
+  // PHASE 3-A
+  'ai/development':   { title: 'AI Development', sub: 'Lead → Research → Qualification → Match → Strategy → Message → Approve → Contact' },
 };
 
 const ConsoleLayout: React.FC = () => {

@@ -8,6 +8,7 @@ import {
   LEAD_STATUSES, LEAD_GRADES, LEAD_SOURCES,
   COMPANY_TYPES, INDUSTRIES, LeadStatus, LeadGrade, LeadSource,
   RESEARCH_TYPES, ResearchType,
+  DEV_STATUSES, DevStatus,
 } from '../types/crm';
 
 export interface ILead extends Document {
@@ -50,6 +51,9 @@ export interface ILead extends Document {
   scoreReasons: string[]; // PHASE 2-B：评分原因列表
 
   status: LeadStatus;
+
+  // PHASE 3-A 新增：AI 客户开发生命周期状态机（独立字段，不影响 PHASE 2-A/2-B 的 status）
+  devStatus: DevStatus;
 
   ownerId?: Types.ObjectId;
 
@@ -108,6 +112,9 @@ const LeadSchema = new Schema<ILead>(
 
     status: { type: String, enum: LEAD_STATUSES, default: 'NEW', index: true },
 
+    // PHASE 3-A：开发状态机（独立于 status，不破坏 PHASE 2-A/2-B 行为）
+    devStatus: { type: String, enum: DEV_STATUSES, default: 'NEW', index: true },
+
     ownerId:    { type: Schema.Types.ObjectId, ref: 'Admin', index: true },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', index: true, unique: false },
     companyId:  { type: Schema.Types.ObjectId, ref: 'Company',  index: true },
@@ -143,6 +150,10 @@ LeadSchema.index({ campaignId: 1, status: 1 });
 LeadSchema.index({ website: 1, country: 1 });
 LeadSchema.index({ email: 1 });
 LeadSchema.index({ phone: 1 });
+// PHASE 3-A：devStatus 视角查询
+LeadSchema.index({ devStatus: 1, createdAt: -1 });
+LeadSchema.index({ ownerId: 1, devStatus: 1, score: -1 });
+LeadSchema.index({ devStatus: 1, grade: 1, score: -1 });
 
 export const Lead = model<ILead>('Lead', LeadSchema);
 export default Lead;

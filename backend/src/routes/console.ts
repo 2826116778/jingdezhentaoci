@@ -36,6 +36,7 @@ import Order, { IOrder } from '../models/Order';
 import { env } from '../config/env';
 import developmentRoutes from './development';
 import aiRoutes from './ai';
+import aiDevelopmentRoutes from './aiDevelopment';
 
 const router = Router();
 
@@ -47,6 +48,9 @@ router.use('/development', developmentRoutes);
 
 // ============ PHASE 2-C AI 海外客户研究 & 开发助手子路由 ============
 router.use('/ai', aiRoutes);
+
+// ============ PHASE 3-A AI Customer Development Center 子路由 ============
+router.use('/ai/development', aiDevelopmentRoutes);
 
 // ---------- 工具 ----------
 const ok = <T>(res: any, data: T, message = 'ok') =>

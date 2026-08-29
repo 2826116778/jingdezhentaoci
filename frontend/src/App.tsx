@@ -58,6 +58,10 @@ const AIJobs       = lazy(() => import('./pages/console/ai/AIJobs'));
 const AIUsage      = lazy(() => import('./pages/console/ai/AIUsage'));
 const LeadResearch = lazy(() => import('./pages/console/ai/LeadResearch'));
 
+// PHASE 3-A AI Customer Development Center
+const DevelopmentDashboard   = lazy(() => import('./pages/console/ai/DevelopmentDashboard'));
+const LeadDevelopmentDetail  = lazy(() => import('./pages/console/ai/LeadDevelopmentDetail'));
+
 const Loading = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <div className="flex flex-col items-center gap-3">
@@ -156,6 +160,9 @@ const App: React.FC = () => {
                 <Route path="ai"       element={<AIDashboard />} />
                 <Route path="ai/jobs"  element={<AIJobs />} />
                 <Route path="ai/usage" element={<AIUsage />} />
+                {/* PHASE 3-A AI Customer Development Center */}
+                <Route path="ai/development"            element={<DevelopmentDashboard />} />
+                <Route path="ai/development/:leadId"    element={<LeadDevelopmentDetail />} />
                 <Route path="customers" element={<ConsoleCustomers />} />
                 <Route path="inquiries" element={<ConsoleInquiries />} />
                 <Route path="quotes"    element={<ConsoleQuotes />} />

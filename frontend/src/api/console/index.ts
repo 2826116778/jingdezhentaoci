@@ -53,6 +53,12 @@ import type {
   AIBulkResearchResult,
   AIMessageDraft,
   AIProductMatch,
+  // PHASE 3-A: AI Customer Development Center
+  LeadDevelopmentDetail,
+  AIDevActionResponse,
+  AIDevStatusTransition,
+  AIDevApproveResponse,
+  DevStatus,
 } from '../../types';
 
 // ---------- List 参数（PHASE 2-A：支持 search / filter / sort / pagination）----------
@@ -90,6 +96,8 @@ export type ConsoleListParams = Partial<{
   quoteId: string;
   paymentStatus: string;
   orderNo: string;
+  // PHASE 3-A
+  devStatus?: string;
 }>;
 
 const DEFAULT_PARAMS: ConsoleListParams = { page: 1, pageSize: 20 };
@@ -324,6 +332,42 @@ export const Console = {
 
     // ----- Provider info -----
     getProvider: () => get<AIProviderInfo>('/console/ai/provider'),
+
+    // ==================================================================
+    // PHASE 3-A — AI Customer Development Center
+    //   路由前缀: /console/ai/development/*
+    //   后端实现: backend/src/routes/aiDevelopment.ts
+    //   命名空间: Console.AI.Development.*
+    // ==================================================================
+    Development: {
+      // ----- 列表（搜索/筛选/排序/分页）-----
+      list: (p?: ConsoleListParams) =>
+        $list<ConsoleLead>('/console/ai/development', p),
+
+      // ----- 详情聚合 -----
+      detail: (leadId: string) =>
+        get<LeadDevelopmentDetail>(`/console/ai/development/${leadId}`),
+
+      // ----- AI 动作（复用 PHASE 2-C orchestrator）-----
+      research: (leadId: string, force?: boolean) =>
+        post<AIDevActionResponse>(`/console/ai/development/${leadId}/research`, { force: !!force }),
+      qualify: (leadId: string, force?: boolean) =>
+        post<AIDevActionResponse>(`/console/ai/development/${leadId}/qualify`, { force: !!force }),
+      productMatch: (leadId: string, force?: boolean) =>
+        post<AIDevActionResponse>(`/console/ai/development/${leadId}/product-match`, { force: !!force }),
+      strategy: (leadId: string, force?: boolean) =>
+        post<AIDevActionResponse>(`/console/ai/development/${leadId}/strategy`, { force: !!force }),
+      message: (leadId: string, d: { language: 'en'|'ar'|'zh'; channel: 'EMAIL'|'WHATSAPP'|'LINKEDIN'|'OTHER'; purpose: 'FIRST_CONTACT'|'FOLLOW_UP'|'INQUIRY_FOLLOW_UP'|'QUOTE_FOLLOW_UP'|'REACTIVATION' }) =>
+        post<AIDevActionResponse>(`/console/ai/development/${leadId}/message`, d),
+
+      // ----- Message Approve（人工审核后唯一推进到 CONTACT_READY 的入口）-----
+      approve: (leadId: string, draftId: string) =>
+        post<AIDevApproveResponse>(`/console/ai/development/${leadId}/approve`, { draftId }),
+
+      // ----- 受控状态转换 -----
+      transition: (leadId: string, toStatus: DevStatus, reason?: string) =>
+        post<AIDevStatusTransition>(`/console/ai/development/${leadId}/status`, { toStatus, reason: reason || '' }),
+    },
   },
 };
 

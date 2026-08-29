@@ -318,6 +318,8 @@ export interface ConsoleLead {
   estimatedPurchaseVolume: string;
   score: number; grade: 'A' | 'B' | 'C' | 'D';
   status: 'NEW' | 'RESEARCHING' | 'QUALIFIED' | 'CONTACTED' | 'REPLIED' | 'INTERESTED' | 'INQUIRY' | 'CONVERTED' | 'LOST';
+  // PHASE 3-A: AI 客户开发生命周期状态机（独立于 status）
+  devStatus?: 'NEW' | 'RESEARCHING' | 'RESEARCHED' | 'QUALIFIED' | 'CONTACT_READY' | 'CONTACTED' | 'REPLIED' | 'FOLLOW_UP' | 'QUALIFIED_OPPORTUNITY' | 'QUOTE_READY' | 'WON' | 'LOST';
   ownerId?: string;
   customerId?: string; companyId?: string;
   tags: string[]; notes: string;
@@ -897,4 +899,71 @@ export interface AIBulkResearchResult {
   jobs: AIResearchJob[];
   confirmRequired?: boolean;
   message?: string;
+}
+
+// ====================================================================
+// PHASE 3-A — AI Customer Development Center
+//   路由前缀: /console/ai/development/*
+//   后端实现: backend/src/routes/aiDevelopment.ts
+//   命名空间: Console.AI.Development.*
+// ====================================================================
+export type DevStatus =
+  | 'NEW' | 'RESEARCHING' | 'RESEARCHED' | 'QUALIFIED'
+  | 'CONTACT_READY' | 'CONTACTED' | 'REPLIED' | 'FOLLOW_UP'
+  | 'QUALIFIED_OPPORTUNITY' | 'QUOTE_READY' | 'WON' | 'LOST';
+
+/** 状态机转换历史（不可覆盖，仅追加） */
+export interface LeadDevelopmentHistoryItem {
+  _id: string;
+  leadId: string;
+  fromStatus: DevStatus | null;
+  toStatus: DevStatus;
+  changedBy?: string;
+  reason: string;
+  source: 'MANUAL' | 'AI_RESEARCH' | 'AI_QUALIFICATION' | 'AI_MESSAGE_APPROVE' | 'SYSTEM';
+  metadata?: any;
+  createdAt: string;
+}
+
+/** Lead Development 详情聚合 */
+export interface LeadDevelopmentDetail {
+  lead: ConsoleLead;
+  profile: AIResearchProfile | null;
+  matches: AIProductMatch[];
+  strategy: AIDevelopmentStrategy | null;
+  drafts: AIMessageDraft[];
+  history: LeadDevelopmentHistoryItem[];   // devStatus 时间线
+  jobs: AIResearchJob[];                     // AI 任务历史
+  audit: AIActionLog[];                       // AI 操作审计
+  provider: {
+    active: 'mock' | 'openai';
+    isConfigured: boolean;
+    aiModel: string;
+  };
+}
+
+/** AI action 后置响应（含 lead + devStatus 变更） */
+export interface AIDevActionResponse<T = any> {
+  lead?: ConsoleLead;
+  draft?: AIMessageDraft;
+  doc?: AIMessageDraft;
+  matches?: AIProductMatch[];
+  strategy?: AIDevelopmentStrategy | null;
+  job: AIResearchJob;
+  intent?: any;
+  score?: any;
+  [k: string]: any;
+}
+
+/** Status transition 响应 */
+export interface AIDevStatusTransition {
+  from: DevStatus | null;
+  to: DevStatus;
+  lead: ConsoleLead;
+}
+
+/** Approve message 响应 */
+export interface AIDevApproveResponse {
+  draft: AIMessageDraft;
+  devStatus?: DevStatus;
 }
