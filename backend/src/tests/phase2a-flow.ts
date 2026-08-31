@@ -18,6 +18,8 @@
  *  12) Interaction Timeline 关键事件存在
  */
 process.env.NODE_ENV = 'test';
+// TRON 收款钱包地址（Order 模型 required 字段）— 测试环境使用 Nile testnet 占位地址
+process.env.MERCHANT_WALLET_TRON = process.env.MERCHANT_WALLET_TRON || 'TXa123456789012345678901234567890ab';
 
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
