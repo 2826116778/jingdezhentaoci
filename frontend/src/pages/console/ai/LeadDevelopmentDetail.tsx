@@ -20,7 +20,7 @@ import { useApp } from '../../../context/AppContext';
 import { Console } from '../../../api/console';
 import type { LeadDevelopmentDetail, DevStatus, AIMessageDraft } from '../../../types';
 import {
-  Loader2, Sparkles, ChevronRight, CheckCircle, AlertCircle, ArrowRight, History,
+  Loader2, Sparkles, ChevronRight, CheckCircle, AlertCircle, ArrowRight, History, X,
 } from 'lucide-react';
 
 const DEV_STATUS_LABEL: Record<DevStatus, string> = {
@@ -53,6 +53,7 @@ const LeadDevelopmentDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string>('');   // 当前正在执行的 AI action
   const [error, setError] = useState('');
+  const [showMsgModal, setShowMsgModal] = useState(false);  // message draft options modal
 
   const fetchDetail = useCallback(async () => {
     setLoading(true); setError('');
@@ -101,6 +102,22 @@ const LeadDevelopmentDetail: React.FC = () => {
     } finally { setBusy(''); }
   };
 
+  const onReject = async (draftId: string) => {
+    setBusy(`reject-${draftId}`);
+    try {
+      await Console.AI.Development.reject(leadId, draftId);
+      showToast({ type: 'success', text: 'Message rejected' });
+      await fetchDetail();
+    } catch (e: any) {
+      showToast({ type: 'error', text: e?.response?.data?.message || e?.message || 'Reject failed' });
+    } finally { setBusy(''); }
+  };
+
+  const onMessageDraft = async (opts: { language: 'en'|'ar'|'zh'; channel: 'EMAIL'|'WHATSAPP'|'LINKEDIN'|'OTHER'; purpose: 'FIRST_CONTACT'|'FOLLOW_UP'|'INQUIRY_FOLLOW_UP'|'QUOTE_FOLLOW_UP'|'REACTIVATION' }) => {
+    setShowMsgModal(false);
+    await runAi('Message', () => Console.AI.Development.message(leadId, opts));
+  };
+
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 text-ceramic-gold-matte animate-spin" /></div>;
   if (error) return <div className="py-12 text-center text-rose-600 text-[13px]">{error}</div>;
   if (!detail) return <div className="py-12 text-center text-ceramic-ash text-[13px]">Lead not found.</div>;
@@ -133,7 +150,7 @@ const LeadDevelopmentDetail: React.FC = () => {
             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
               <Tag>AI Score: <strong>{lead.score ?? 0}</strong></Tag>
               <Tag>Grade: <strong>{lead.grade || 'C'}</strong></Tag>
-              <Tag>Owner: <strong>{(lead as any).ownerId || 'unassigned'}</strong></Tag>
+              <Tag>Owner: <strong>{(lead as any).ownerId?.username || (lead as any).ownerId || 'unassigned'}</strong></Tag>
               <Tag>Provider: <strong>{provider.active}</strong> ({provider.isConfigured ? 'ready' : 'not configured'})</Tag>
             </div>
           </div>
@@ -189,7 +206,7 @@ const LeadDevelopmentDetail: React.FC = () => {
           <AiButton label="4. Strategy" loading={busy === 'strategy'} disabled={!!busy}
             onClick={() => runAi('Strategy', () => Console.AI.Development.strategy(leadId))} />
           <AiButton label="5. Message Draft" loading={busy === 'message'} disabled={!!busy}
-            onClick={() => runAi('Message', () => Console.AI.Development.message(leadId, { language: 'en', channel: 'EMAIL', purpose: 'FIRST_CONTACT' }))} />
+            onClick={() => setShowMsgModal(true)} />
         </div>
         <p className="mt-2 text-[10px] text-ceramic-ash">
           All actions reuse PHASE 2-C AIProvider / Budget / Queue / InjectionGuard / Schema Validation / Audit.
@@ -298,13 +315,22 @@ const LeadDevelopmentDetail: React.FC = () => {
                     <pre className="whitespace-pre-wrap text-[12px] text-ceramic-graphite/80 bg-ceramic-cream/40 p-2 rounded-[2px]">{d.content}</pre>
                     {d.reason && <div className="text-[11px] text-ceramic-ash mt-1">Why: {d.reason}</div>}
                     {(d.status === 'DRAFT' || d.status === 'EDITED') && (
-                      <button
-                        disabled={!!busy}
-                        onClick={() => onApprove(d._id)}
-                        className="mt-2 h-8 px-3 rounded-[2px] bg-emerald-600 text-white text-[12px] hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        <CheckCircle size={13} /> Approve (→ Contact Ready)
-                      </button>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          disabled={!!busy}
+                          onClick={() => onApprove(d._id)}
+                          className="h-8 px-3 rounded-[2px] bg-emerald-600 text-white text-[12px] hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <CheckCircle size={13} /> Approve (→ Contact Ready)
+                        </button>
+                        <button
+                          disabled={!!busy}
+                          onClick={() => onReject(d._id)}
+                          className="h-8 px-3 rounded-[2px] border border-rose-200 text-rose-700 text-[12px] hover:bg-rose-50 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <X size={13} /> Reject
+                        </button>
+                      </div>
                     )}
                     {d.status === 'APPROVED' && <div className="mt-2 text-[11px] text-emerald-700 flex items-center gap-1"><CheckCircle size={12} /> Approved — manually send via your email/WhatsApp client. AI never auto-sends.</div>}
                   </li>
@@ -367,6 +393,15 @@ const LeadDevelopmentDetail: React.FC = () => {
           </Panel>
         </div>
       </div>
+
+      {/* ===== Message Draft Options Modal ===== */}
+      {showMsgModal && (
+        <MessageDraftModal
+          onClose={() => setShowMsgModal(false)}
+          onSubmit={onMessageDraft}
+          busy={!!busy}
+        />
+      )}
     </div>
   );
 };
@@ -421,6 +456,68 @@ const Field: React.FC<{ label: string; field: any }> = ({ label, field }) => {
             'bg-ceramic-cream text-ceramic-ash'}`}>{confidence}</span>
       )}
       {reason && <div className="w-full text-[10px] text-ceramic-ash italic ms-32">{reason}</div>}
+    </div>
+  );
+};
+
+// ---------- Message Draft Options Modal ----------
+const MessageDraftModal: React.FC<{
+  onClose: () => void;
+  onSubmit: (opts: { language: 'en'|'ar'|'zh'; channel: 'EMAIL'|'WHATSAPP'|'LINKEDIN'|'OTHER'; purpose: 'FIRST_CONTACT'|'FOLLOW_UP'|'INQUIRY_FOLLOW_UP'|'QUOTE_FOLLOW_UP'|'REACTIVATION' }) => void;
+  busy: boolean;
+}> = ({ onClose, onSubmit, busy }) => {
+  const [language, setLanguage] = useState<'en'|'ar'|'zh'>('en');
+  const [channel, setChannel] = useState<'EMAIL'|'WHATSAPP'|'LINKEDIN'|'OTHER'>('EMAIL');
+  const [purpose, setPurpose] = useState<'FIRST_CONTACT'|'FOLLOW_UP'|'INQUIRY_FOLLOW_UP'|'QUOTE_FOLLOW_UP'|'REACTIVATION'>('FIRST_CONTACT');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div className="bg-white border border-ceramic-border rounded-[2px] p-5 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="serif-heading text-[16px] text-ceramic-graphite">Generate Message Draft</div>
+          <button onClick={onClose} className="text-ceramic-ash hover:text-ceramic-graphite"><X size={16} /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Language</label>
+            <select value={language} onChange={(e) => setLanguage(e.target.value as any)}
+              className="w-full h-9 rounded-[2px] bg-white border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none">
+              <option value="en">English</option>
+              <option value="ar">العربية (Arabic)</option>
+              <option value="zh">中文 (Chinese)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Channel</label>
+            <select value={channel} onChange={(e) => setChannel(e.target.value as any)}
+              className="w-full h-9 rounded-[2px] bg-white border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none">
+              <option value="EMAIL">Email</option>
+              <option value="WHATSAPP">WhatsApp</option>
+              <option value="LINKEDIN">LinkedIn</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Purpose</label>
+            <select value={purpose} onChange={(e) => setPurpose(e.target.value as any)}
+              className="w-full h-9 rounded-[2px] bg-white border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none">
+              <option value="FIRST_CONTACT">First Contact</option>
+              <option value="FOLLOW_UP">Follow-up</option>
+              <option value="INQUIRY_FOLLOW_UP">Inquiry Follow-up</option>
+              <option value="QUOTE_FOLLOW_UP">Quote Follow-up</option>
+              <option value="REACTIVATION">Reactivation</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2 border-t border-ceramic-border">
+          <button onClick={onClose} disabled={busy}
+            className="h-9 px-4 rounded-[2px] border border-ceramic-border text-[13px] text-ceramic-graphite hover:bg-ceramic-cream/60 disabled:opacity-50">Cancel</button>
+          <button onClick={() => onSubmit({ language, channel, purpose })} disabled={busy}
+            className="h-9 px-4 rounded-[2px] bg-ceramic-gold-matte text-white text-[13px] hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Generate
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

@@ -51,6 +51,7 @@ const DevelopmentDashboard: React.FC = () => {
   const [params, setParams] = useState({
     page: 1, pageSize: 20, search: '', devStatus: '', country: '',
     ownerId: '', minScore: '', maxScore: '', sort: 'createdAt', order: 'desc' as 'asc' | 'desc',
+    grade: '', industry: '',
   });
   const [data, setData] = useState<{ items: ConsoleLead[]; total: number; totalPages: number } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,8 @@ const DevelopmentDashboard: React.FC = () => {
       if (params.ownerId) filter.ownerId = params.ownerId;
       if (params.minScore) filter.minScore = Number(params.minScore);
       if (params.maxScore) filter.maxScore = Number(params.maxScore);
+      if (params.grade) filter.grade = params.grade;
+      if (params.industry) filter.industry = params.industry;
       const res = await Console.AI.Development.list(filter);
       const d = (res as any)?.data ?? res;
       setData({ items: d.items || [], total: d.total || 0, totalPages: d.totalPages || 0 });
@@ -88,12 +91,13 @@ const DevelopmentDashboard: React.FC = () => {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchList(); /* eslint-disable-next-line */ }, [params.page, params.pageSize, params.devStatus, params.country, params.ownerId, params.minScore, params.maxScore, params.sort, params.order]);
+  useEffect(() => { fetchList(); /* eslint-disable-next-line */ }, [params.page, params.pageSize, params.devStatus, params.country, params.ownerId, params.minScore, params.maxScore, params.grade, params.industry, params.sort, params.order]);
 
   const onSearch = (e: React.FormEvent) => { e.preventDefault(); setParams(p => ({ ...p, page: 1 })); fetchList(); };
   const onReset = () => setParams({
     page: 1, pageSize: 20, search: '', devStatus: '', country: '',
     ownerId: '', minScore: '', maxScore: '', sort: 'createdAt', order: 'desc',
+    grade: '', industry: '',
   });
   const toggleSort = (col: string) => setParams(p => ({
     ...p, sort: col, order: p.sort === col && p.order === 'desc' ? 'asc' : 'desc', page: 1,
@@ -107,6 +111,12 @@ const DevelopmentDashboard: React.FC = () => {
   const countries = useMemo(() => {
     const set = new Set<string>();
     data?.items.forEach((l) => { if (l.country) set.add(l.country); });
+    return Array.from(set).sort();
+  }, [data]);
+
+  const industries = useMemo(() => {
+    const set = new Set<string>();
+    data?.items.forEach((l) => { if (l.industry) set.add(l.industry); });
     return Array.from(set).sort();
   }, [data]);
 
@@ -192,6 +202,37 @@ const DevelopmentDashboard: React.FC = () => {
             />
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2 border-t border-ceramic-border">
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Grade</label>
+            <select
+              value={params.grade} onChange={(e) => setParams(p => ({ ...p, grade: e.target.value, page: 1 }))}
+              className="w-full h-9 rounded-[2px] bg-white border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none"
+            >
+              <option value="">All</option>
+              {['A', 'B', 'C', 'D'].map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Industry</label>
+            <select
+              value={params.industry} onChange={(e) => setParams(p => ({ ...p, industry: e.target.value, page: 1 }))}
+              className="w-full h-9 rounded-[2px] bg-white border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none"
+            >
+              <option value="">All</option>
+              {industries.map((ind) => <option key={ind} value={ind}>{ind}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] text-ceramic-ash mb-1">Owner ID</label>
+            <input
+              type="text" value={params.ownerId}
+              onChange={(e) => setParams(p => ({ ...p, ownerId: e.target.value, page: 1 }))}
+              placeholder="Admin ObjectId"
+              className="w-full h-9 rounded-[2px] bg-ceramic-cream/40 border border-ceramic-border px-2 text-[13px] focus:border-ceramic-gold-matte focus:outline-none"
+            />
+          </div>
+        </div>
         <div className="flex gap-2">
           <button type="submit" className="h-9 px-4 rounded-[2px] bg-ceramic-gold-matte text-white text-[13px] hover:opacity-90">Apply</button>
           <button type="button" onClick={onReset} className="h-9 px-4 rounded-[2px] border border-ceramic-border text-[13px] text-ceramic-graphite hover:bg-ceramic-cream/60">Reset</button>
@@ -245,7 +286,7 @@ const DevelopmentDashboard: React.FC = () => {
                       <span className="inline-flex w-7 h-7 items-center justify-center rounded-full text-[11px] font-bold
                         bg-ceramic-gold-matte/10 text-ceramic-gold-matte">{l.grade || 'C'}</span>
                     </td>
-                    <td className="px-4 py-3 text-ceramic-ash">{(l as any).ownerId || '—'}</td>
+                    <td className="px-4 py-3 text-ceramic-ash">{(l as any).ownerId?.username || (l as any).ownerId || '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => nav(`/console/ai/development/${l._id}`)}

@@ -75,9 +75,11 @@ function parsePage(q: any) {
   const skip = (page - 1) * pageSize;
   return { page, pageSize, skip };
 }
-async function paginate<T>(model: any, baseFilter: FilterQuery<T>, page: number, pageSize: number, skip: number, sort: any = { createdAt: -1 }) {
+async function paginate<T>(model: any, baseFilter: FilterQuery<T>, page: number, pageSize: number, skip: number, sort: any = { createdAt: -1 }, populate?: any) {
+  let q = model.find(baseFilter).sort(sort).skip(skip).limit(pageSize);
+  if (populate) q = q.populate(populate);
   const [items, total] = await Promise.all([
-    model.find(baseFilter).sort(sort).skip(skip).limit(pageSize).lean(),
+    q.lean(),
     model.countDocuments(baseFilter),
   ]);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) || 0 };
@@ -205,7 +207,7 @@ router.get('/', async (req: AuthRequest, res) => {
     sort.createdAt = -1;
   }
 
-  ok(res, await paginate<ILead>(Lead, base, page, pageSize, skip, sort));
+  ok(res, await paginate<ILead>(Lead, base, page, pageSize, skip, sort, { path: 'ownerId', select: 'username role' }));
 });
 
 // ========================================================================
@@ -216,7 +218,7 @@ router.get('/:leadId', async (req: AuthRequest, res) => {
   const lid = req.params.leadId;
   if (!(await canAccessLead(req, lid))) return fail(res, 403, 403, 'Permission denied');
 
-  const lead = await Lead.findById(lid).lean();
+  const lead = await Lead.findById(lid).populate('ownerId', 'username role').lean();
   if (!lead) return fail(res, 404, 404, 'Lead not found');
 
   // 并发拉取所有 AI 产物 + 历史
@@ -452,6 +454,46 @@ router.post('/:leadId/approve', async (req: AuthRequest, res) => {
   }
 
   ok(res, { draft: updated, devStatus: (await Lead.findById(lid).select('devStatus').lean())?.devStatus });
+});
+
+// ========================================================================
+// POST /:leadId/reject — 拒绝 message draft（人工审核流程的一部分）
+//   仅修改 draft.status = REJECTED + 记录审计；不推进 devStatus。
+// ========================================================================
+router.post('/:leadId/reject', async (req: AuthRequest, res) => {
+  if (!isValidObjectId(req.params.leadId)) return fail(res, 400, 400, 'Invalid leadId');
+  const lid = req.params.leadId;
+  if (!(await canAccessLead(req, lid))) return fail(res, 403, 403, 'Permission denied');
+
+  const draftId = req.body?.draftId;
+  if (!draftId || !isValidObjectId(draftId)) {
+    return fail(res, 400, 400, 'draftId is required');
+  }
+  const reason = (req.body?.reason as string) || '';
+  const draft = await AIMessageDraft.findById(draftId).lean();
+  if (!draft) return fail(res, 404, 404, 'Draft not found');
+  if (String(draft.leadId) !== lid) return fail(res, 400, 400, 'Draft does not belong to this Lead');
+
+  // 只允许 DRAFT/EDITED → REJECTED；APPROVED/SENT 不可再 reject
+  if (draft.status === 'APPROVED') return fail(res, 400, 400, 'Draft already approved');
+  if (draft.status === 'SENT') return fail(res, 400, 400, 'Draft already sent');
+  if (draft.status === 'REJECTED') return fail(res, 400, 400, 'Draft already rejected');
+
+  const updated = await AIMessageDraft.findByIdAndUpdate(
+    draftId, { $set: { status: 'REJECTED' } }, { new: true },
+  ).lean();
+
+  await AIActionLog.create({
+    userId: toId(req.admin?.id) as any,
+    leadId: lid as any,
+    action: 'EDIT' as any,
+    provider: getActiveProviderName(),
+    aiModel: env.OPENAI_MODEL,
+    status: 'OK',
+    metadata: { draftId: String(draftId), type: 'message_rejection', reason },
+  });
+
+  ok(res, { draft: updated });
 });
 
 // ========================================================================

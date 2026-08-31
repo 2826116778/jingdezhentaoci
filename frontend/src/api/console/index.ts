@@ -364,6 +364,10 @@ export const Console = {
       approve: (leadId: string, draftId: string) =>
         post<AIDevApproveResponse>(`/console/ai/development/${leadId}/approve`, { draftId }),
 
+      // ----- Message Reject（人工审核拒绝 draft）-----
+      reject: (leadId: string, draftId: string, reason?: string) =>
+        post<AIDevApproveResponse>(`/console/ai/development/${leadId}/reject`, { draftId, reason: reason || '' }),
+
       // ----- 受控状态转换 -----
       transition: (leadId: string, toStatus: DevStatus, reason?: string) =>
         post<AIDevStatusTransition>(`/console/ai/development/${leadId}/status`, { toStatus, reason: reason || '' }),
