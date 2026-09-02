@@ -293,6 +293,18 @@ function toDateInput(d?: string | Date | null): string {
   return `${y}-${m}-${day}`;
 }
 
+// 将 YYYY-MM-DD 字符串转为后端需要的 UTC ISO 字符串（如 2026-09-15T00:00:00.000Z）
+// 输入为空或非法时返回 undefined，避免污染 payload
+function dateToBackendIso(dateStr?: string | null): string | undefined {
+  if (!dateStr) return undefined;
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return undefined;
+  const [y, m, d] = parts;
+  const date = new Date(y, m - 1, d);
+  if (isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
 // ----- Campaign Create Modal -----
 const CampaignCreateModal: React.FC<{ onClose: () => void; onSaved: (c: ConsoleLeadCampaign) => void }> = ({ onClose, onSaved }) => {
   const { showToast } = useApp();
@@ -328,7 +340,13 @@ const CampaignCreateModal: React.FC<{ onClose: () => void; onSaved: (c: ConsoleL
     if (!(form.countries || []).length) return showToast({ type: 'error', text: 'Select at least one country' });
     setSaving(true);
     try {
-      const created = await Console.Development.createCampaign(form);
+      // 表单状态中 startDate/endDate 为 input 原生 YYYY-MM-DD 字符串，提交前转为后端需要的 UTC ISO
+      const payload = {
+        ...form,
+        startDate: dateToBackendIso(form.startDate),
+        endDate: dateToBackendIso(form.endDate),
+      };
+      const created = await Console.Development.createCampaign(payload);
       onSaved(created);
     } catch (err: any) {
       showToast({ type: 'error', text: err?.message || 'Create failed' });
