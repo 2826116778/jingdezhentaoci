@@ -4,7 +4,7 @@
  * 新增：行级"Edit Items"按钮 → 弹窗增删改商品项，调用 PATCH /orders/:id/items 重算金额（仅 pending 可编辑）
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { ShoppingCart, Package, Plus, Trash2, X, Loader2 } from 'lucide-react';
+import { ShoppingCart, Package, Plus, Trash2, X, Loader2, Eye } from 'lucide-react';
 import ConsoleListPageView, { Column, ListFilter } from '../../components/console/ConsoleListPage';
 import { Console } from '../../api/console';
 import { Orders as OrdersApi } from '../../api';
@@ -66,11 +66,29 @@ function PaymentChip({ s }: { s: string }) {
   return <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] border font-semibold ${m[s] || m.pending}`}>{s || 'pending'}</span>;
 }
 
+// 详情弹窗辅助组件
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div>
+    <h4 className="text-[11px] tracking-luxury uppercase text-ceramic-ash mb-2 border-b border-ceramic-border pb-1">{title}</h4>
+    {children}
+  </div>
+);
+const Grid2: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
+);
+const Field: React.FC<{ label: string; value: React.ReactNode; mono?: boolean }> = ({ label, value, mono }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] tracking-luxury uppercase text-ceramic-ash mb-0.5">{label}</div>
+    <div className={`text-sm text-ceramic-graphite break-words ${mono ? 'font-mono' : ''}`}>{value}</div>
+  </div>
+);
+
 const Orders: React.FC = () => {
   const { showToast } = useApp();
   const [editing, setEditing] = useState<ConsoleOrder | null>(null);
   const [items, setItems] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [viewing, setViewing] = useState<ConsoleOrder | null>(null);
 
   const openItemsModal = useCallback((row: ConsoleOrder) => {
     setItems(((row.items || []) as any[]).map(i => ({ ...i })));
@@ -83,7 +101,15 @@ const Orders: React.FC = () => {
       render: (o) => {
         const canEdit = o.paymentStatus === 'pending';
         return (
-          <div className="flex gap-1">
+          <div className="flex gap-1 items-center">
+            <button
+              onClick={() => setViewing(o)}
+              className="p-1.5 text-ceramic-ash hover:text-ceramic-gold-deep border border-ceramic-border rounded"
+              title="View detail"
+              aria-label="View detail"
+            >
+              <Eye size={14} />
+            </button>
             <button
               onClick={() => openItemsModal(o)}
               disabled={!canEdit}
@@ -202,6 +228,137 @@ const Orders: React.FC = () => {
                 </div>
               </div>
               <p className="text-[11px] text-ceramic-ash">Note: prices for items with productId will be re-verified against the Product DB on the backend (anti-tampering).</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 订单详情弹窗 */}
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-sm border border-ceramic-border w-full max-w-3xl shadow-xl">
+            <div className="flex items-center justify-between p-5 border-b border-ceramic-border">
+              <div className="min-w-0">
+                <h3 className="serif-heading text-[20px]">Order Detail</h3>
+                <div className="text-[11px] text-ceramic-ash font-mono truncate">{viewing.orderNo || '---'} · {viewing.orderType}</div>
+              </div>
+              <button onClick={() => setViewing(null)} className="p-1.5 text-ceramic-ash hover:text-ceramic-graphite"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* 基本信息 */}
+              <Section title="Basic Info">
+                <Grid2>
+                  <Field label="Order No." value={viewing.orderNo || '---'} mono />
+                  <Field label="Type" value={viewing.orderType || '---'} />
+                  <Field label="Payment Status" value={<PaymentChip s={viewing.paymentStatus} />} />
+                  <Field label="Created At" value={viewing.createdAt ? new Date(viewing.createdAt).toLocaleString() : '---'} />
+                  {viewing.paidAt && <Field label="Paid At" value={new Date(viewing.paidAt).toLocaleString()} />}
+                  {(viewing as any).expiredAt && <Field label="Expired At" value={new Date((viewing as any).expiredAt).toLocaleString()} />}
+                </Grid2>
+              </Section>
+
+              {/* 收货地址 - 重点突出 */}
+              <Section title="Shipping Address">
+                <div className="bg-ceramic-cream/30 border border-ceramic-gold-matte/30 rounded p-4 space-y-1">
+                  <div className="font-medium text-ceramic-graphite">{viewing.contactInfo?.name || '---'}</div>
+                  <div className="text-sm text-ceramic-graphite">{viewing.contactInfo?.shippingAddress || '---'}</div>
+                  {viewing.contactInfo?.shippingAddress2 && <div className="text-sm text-ceramic-graphite">{viewing.contactInfo.shippingAddress2}</div>}
+                  <div className="text-sm text-ceramic-graphite">
+                    {[viewing.contactInfo?.shippingCity, viewing.contactInfo?.shippingState, viewing.contactInfo?.shippingZip].filter(Boolean).join(', ') || '---'}
+                  </div>
+                  {viewing.contactInfo?.shippingCountry && <div className="text-sm text-ceramic-graphite">{viewing.contactInfo.shippingCountry}</div>}
+                </div>
+              </Section>
+
+              {/* 客户联系信息 */}
+              <Section title="Contact Info">
+                <Grid2>
+                  <Field label="Name" value={viewing.contactInfo?.name || '---'} />
+                  <Field label="Email" value={viewing.contactInfo?.email || '---'} />
+                  <Field label="Phone" value={viewing.contactInfo?.phone || '---'} />
+                  <Field label="WhatsApp" value={viewing.contactInfo?.whatsapp || '---'} />
+                  <Field label="Company" value={viewing.contactInfo?.company || '---'} />
+                  <Field label="Country" value={viewing.contactInfo?.country || '---'} />
+                </Grid2>
+              </Section>
+
+              {/* 商品列表 */}
+              <Section title={`Items (${viewing.items?.length || 0})`}>
+                <div className="border border-ceramic-border rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-ceramic-cream/50 text-[11px] tracking-luxury uppercase text-ceramic-ash">
+                      <tr>
+                        <th className="text-left p-2">Name</th>
+                        <th className="text-right p-2 w-24">Price</th>
+                        <th className="text-center p-2 w-16">Qty</th>
+                        <th className="text-right p-2 w-28">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(viewing.items || []).map((it, i) => (
+                        <tr key={i} className="border-t border-ceramic-border">
+                          <td className="p-2 text-ceramic-graphite">{it.name || '---'}</td>
+                          <td className="p-2 text-right text-ceramic-graphite">${Number(it.price || 0).toFixed(2)}</td>
+                          <td className="p-2 text-center text-ceramic-graphite">{it.qty || 0}</td>
+                          <td className="p-2 text-right font-semibold text-ceramic-graphite">${(Number(it.price || 0) * Number(it.qty || 0)).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {(viewing.items?.length || 0) === 0 && (
+                        <tr><td colSpan={4} className="p-4 text-center text-ceramic-ash text-sm">No items</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-ceramic-gold-matte bg-ceramic-cream/30">
+                        <td colSpan={3} className="p-2 text-right text-[11px] tracking-luxury uppercase text-ceramic-ash">Total (USD)</td>
+                        <td className="p-2 text-right serif-heading text-[16px] gold-text">${(viewing.totalAmount || 0).toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Section>
+
+              {/* 支付信息 */}
+              <Section title="Payment">
+                <Grid2>
+                  <Field label="Amount (USD)" value={`$${(viewing.totalAmount || 0).toFixed(2)}`} />
+                  <Field label="USDT Amount" value={`${(viewing.usdtAmount || 0).toFixed(6)} USDT`} />
+                  <Field label="Wallet Address" value={(viewing as any).walletAddress || '---'} mono />
+                  {viewing.txHash && <Field label="Tx Hash" value={viewing.txHash} mono />}
+                  {(viewing as any).orderExpireAt && <Field label="Expire At" value={new Date((viewing as any).orderExpireAt).toLocaleString()} />}
+                </Grid2>
+              </Section>
+
+              {/* CRM 关联 */}
+              {(viewing.customerId || viewing.inquiryId || viewing.quoteId) && (
+                <Section title="CRM Links">
+                  <Grid2>
+                    {viewing.customerId && <Field label="Customer" value={viewing.customerId} mono />}
+                    {viewing.inquiryId && <Field label="Inquiry" value={viewing.inquiryId} mono />}
+                    {viewing.quoteId && <Field label="Quote" value={viewing.quoteId} mono />}
+                  </Grid2>
+                </Section>
+              )}
+
+              {/* 经销商信息 */}
+              {viewing.dealerInfo && (
+                <Section title="Dealer Info">
+                  <Grid2>
+                    <Field label="Company" value={viewing.dealerInfo.company || '---'} />
+                    <Field label="WhatsApp" value={viewing.dealerInfo.whatsapp || '---'} />
+                    <Field label="Country" value={viewing.dealerInfo.country || '---'} />
+                  </Grid2>
+                </Section>
+              )}
+
+              {/* 客户需求 */}
+              {viewing.customDemand && (
+                <Section title="Customer Demand">
+                  <div className="text-sm text-ceramic-graphite bg-ceramic-cream/30 p-3 rounded">{viewing.customDemand}</div>
+                </Section>
+              )}
+            </div>
+            <div className="flex justify-end p-5 border-t border-ceramic-border">
+              <button onClick={() => setViewing(null)} className="btn-gold">Close</button>
             </div>
           </div>
         </div>
