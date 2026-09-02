@@ -358,6 +358,80 @@ router.patch('/orders/:id/status', authJWT(), async (req, res, next) => {
 });
 
 /**
+ * 管理端：编辑订单商品项（重算金额）
+ * - 仅允许 paymentStatus === 'pending' 的订单编辑 items
+ * - 价格反查逻辑与 POST /orders 一致：带 productId 的 item 用 Product.priceMax 覆盖
+ */
+router.patch('/orders/:id/items', authJWT(), async (req, res, next) => {
+  try {
+    const items = (req.body.items || []) as OrderItem[];
+    if (!items.length) return fail(res, '商品项不能为空');
+    for (const it of items) {
+      if (!it.name || typeof it.price !== 'number' || !it.qty) {
+        return fail(res, `商品项字段不完整：${it.name || '未命名'}`);
+      }
+    }
+    // 价格反查（与 POST /orders 一致，防篡改）
+    const pidRegex = /^[0-9a-fA-F]{24}$/;
+    const productIds = items
+      .map(it => String(it.productId || '').trim())
+      .filter(id => !!id && pidRegex.test(id));
+    const productMap = new Map<string, { nameEn: string; priceMax: number; images?: string[] }>();
+    if (productIds.length) {
+      const docs = await Product.find({ _id: { $in: productIds } }).lean();
+      for (const p of docs) productMap.set(String(p._id), { nameEn: p.nameEn, priceMax: p.priceMax, images: p.images });
+    }
+    for (const it of items) {
+      const pid = String(it.productId || '').trim();
+      if (!pid) continue; // 无 productId 的 OEM/定制询价项保留客户端价
+      if (!pidRegex.test(pid)) return fail(res, `商品 ID 非法：${pid}`);
+      const p = productMap.get(pid);
+      if (!p) return fail(res, `商品不存在或已下架：${it.name || pid}`);
+      it.price = p.priceMax;
+      it.name = p.nameEn || it.name;
+      if (!it.image && p.images?.[0]) it.image = p.images[0];
+    }
+    const total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+    if (!(total > 0)) return fail(res, '订单总额必须大于 0');
+    const usdtAmount = +(total * env.USD_TO_USDT_RATE).toFixed(6);
+
+    const existing = await Order.findById(req.params.id);
+    if (!existing) return fail(res, '订单不存在', 404, 404);
+    if (existing.paymentStatus !== 'pending') {
+      return fail(res, `订单状态为 ${existing.paymentStatus}，不允许编辑商品项（仅 pending 可编辑）`);
+    }
+
+    const updated = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          items: items.map(i => ({
+            productId: String(i.productId || ''),
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+            image: i.image || '',
+          })),
+          totalAmount: +total.toFixed(2),
+          usdtAmount,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    return success(res, {
+      _id: updated!._id,
+      orderNo: updated!.orderNo,
+      items: updated!.items,
+      totalAmount: updated!.totalAmount,
+      amount: updated!.usdtAmount,
+      usdtAmount: updated!.usdtAmount,
+      paymentStatus: updated!.paymentStatus,
+    });
+  } catch (e) { next(e); }
+});
+
+/**
  * 后台：更新经销商信息（WhatsApp / 公司 / 国家 / 备注 / 标签等）
  * 管理员可以为经销商订单补充 / 修改联系信息
  */

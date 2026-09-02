@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, MessageCircle, Check, Plus, Minus, ZoomIn } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Check, Plus, Minus, ZoomIn, ShoppingBag } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import InquiryForm from '../components/common/InquiryForm';
 import ProductCard from '../components/common/ProductCard';
 import { Products } from '../api';
 import { Product } from '../types';
-import { useApp } from '../context/AppContext';
+import { useApp, useCart } from '../context/AppContext';
 import { buildWhatsAppLink, CATEGORY_I18N, copyText, MATERIAL_I18N, pickBilingual, secondsToMMSS } from '../utils';
 
 const ROWS: { k: keyof Product | 'price'; labelK: string; format?: (p: Product) => string }[] = [
@@ -25,6 +25,7 @@ const ProductDetail: React.FC = () => {
   const nav = useNavigate();
   const { t, i18n } = useTranslation();
   const { lang, showToast } = useApp();
+  const { add } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<Product | null>(null);
@@ -214,7 +215,7 @@ const ProductDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
               <a
                 href={buildWhatsAppLink({ preset: 'product', t, productName: name, sku: product.sku })}
                 target="_blank"
@@ -223,6 +224,22 @@ const ProductDetail: React.FC = () => {
               >
                 <MessageCircle size={15} /> {t('cta.whatsapp_inquire')}
               </a>
+              <button
+                className="btn-gold-outline justify-center"
+                onClick={() => {
+                  add({
+                    productId: product._id,
+                    name,
+                    price: product.priceMax,
+                    image: product.images?.[0] || '',
+                    sku: product.sku,
+                    moq: product.moq,
+                  }, Math.max(1, qty, product.moq || 1));
+                  showToast({ type: 'success', text: t('cart.added') });
+                }}
+              >
+                <ShoppingBag size={15} /> {t('cart.add')}
+              </button>
               <button className="btn-gold justify-center" onClick={goCheckout}>
                 {t('cta.pay_with_u')}
               </button>

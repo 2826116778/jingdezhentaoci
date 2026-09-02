@@ -111,6 +111,7 @@ export const Orders = {
   verifyTx: (id: string, txHash: string) => post<{ msg: string; status: string; txHash?: string }>(`/orders/id/${id}/verify-tx`, { txHash }),
   list: (p?: any) => get<{ list: OrderListItem[]; total: number; page: number; limit: number }>('/orders', p),
   setStatus: (id: string, status: string) => patch<void>(`/orders/${id}/status`, { status }),
+  updateItems: (id: string, items: any[]) => patch<{ _id: string; orderNo: string; items: any[]; totalAmount: number; usdtAmount: number; paymentStatus: string }>(`/orders/${id}/items`, { items }),
   setDealerInfo: (id: string, data: any) => patch<OrderListItem>(`/orders/${id}/dealer`, data),
 };
 

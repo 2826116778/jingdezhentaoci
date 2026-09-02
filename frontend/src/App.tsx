@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AppProvider, AuthProvider } from './context/AppContext';
+import { AppProvider, AuthProvider, CartProvider } from './context/AppContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import WhatsAppButton from './components/layout/WhatsAppButton';
@@ -19,6 +19,7 @@ const OEMService = lazy(() => import('./pages/OEMService'));
 const About = lazy(() => import('./pages/About'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Checkout = lazy(() => import('./pages/Checkout'));
+const Cart = lazy(() => import('./pages/Cart'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // 后台（CMS：产品/案例/询盘 CRUD + 导出）
@@ -105,6 +106,7 @@ const App: React.FC = () => {
   return (
     <AppProvider>
       <AuthProvider>
+      <CartProvider>
         <SEO />
         <ToastHost />
         <ScrollToTop />
@@ -119,6 +121,7 @@ const App: React.FC = () => {
               <Route path="/oem" element={<OEMService />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/cart" element={<Cart />} />
               <Route path="/checkout/:orderNo?" element={<Checkout />} />
               <Route path="/404" element={<NotFound />} />
 
@@ -182,6 +185,7 @@ const App: React.FC = () => {
             </Routes>
           </Suspense>
         </PublicShell>
+      </CartProvider>
       </AuthProvider>
     </AppProvider>
   );

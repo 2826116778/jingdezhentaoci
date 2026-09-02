@@ -4,9 +4,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, MessageCircle } from 'lucide-react';
+import { ArrowRight, MessageCircle, ShoppingBag } from 'lucide-react';
 import { Product } from '../../types';
-import { useApp } from '../../context/AppContext';
+import { useApp, useCart } from '../../context/AppContext';
 import { CATEGORY_I18N, buildWhatsAppLink, pickBilingual } from '../../utils';
 
 interface Props {
@@ -16,7 +16,8 @@ interface Props {
 
 export const ProductCard: React.FC<Props> = ({ product }) => {
   const { t } = useTranslation();
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
+  const { add } = useCart();
   const name = pickBilingual(product, lang);
   const desc = lang === 'ar' ? product.descAr : product.descEn;
   const catKey = CATEGORY_I18N[product.category] || 'footer.p_oem';
@@ -65,11 +66,28 @@ export const ProductCard: React.FC<Props> = ({ product }) => {
               {t('cta.view_detail')}
               <ArrowRight size={14} />
             </Link>
+            <button
+              onClick={() => {
+                add({
+                  productId: product._id,
+                  name,
+                  price: product.priceMax,
+                  image: product.images?.[0] || '',
+                  sku: product.sku,
+                  moq: product.moq,
+                }, Math.max(1, product.moq || 1));
+                showToast({ type: 'success', text: t('cart.added') });
+              }}
+              className="btn-gold !px-4 !py-2.5 !text-[11px]"
+              aria-label={t('cart.add')}
+            >
+              <ShoppingBag size={14} />
+            </button>
             <a
               href={buildWhatsAppLink({ preset: 'product', productName: name, sku: product.sku, t })}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-gold !px-4 !py-2.5 !text-[11px]"
+              className="btn-gold-outline !px-4 !py-2.5 !text-[11px]"
               aria-label="WhatsApp"
             >
               <MessageCircle size={14} />

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Menu, X, Globe, MessageCircle } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { Menu, X, Globe, MessageCircle, ShoppingBag } from 'lucide-react';
+import { useApp, useCart } from '../../context/AppContext';
 
 const linkBase = 'transition-colors duration-300 text-sm tracking-luxury uppercase hover:text-ceramic-gold-deep';
 const active = ({ isActive }: { isActive: boolean }) =>
@@ -11,6 +11,7 @@ const active = ({ isActive }: { isActive: boolean }) =>
 const Navbar: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { lang, setLang, isRTL } = useApp();
+  const { count } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
@@ -59,8 +60,16 @@ const Navbar: React.FC = () => {
           <li><NavLink to="/contact" className={active}>{t('nav.contact')}</NavLink></li>
         </ul>
 
-        {/* 右上：语言 + Get Quote + 菜单 */}
+        {/* 右上：购物车 + 语言 + Get Quote + 菜单 */}
         <div className="flex items-center gap-2 md:gap-4">
+          <Link to="/cart" className="relative p-2 text-ceramic-graphite hover:text-ceramic-gold-deep transition-colors" aria-label="Cart">
+            <ShoppingBag size={20} />
+            {count > 0 && (
+              <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-ceramic-gold-matte text-white text-[10px] rounded-full">
+                {count > 99 ? '99+' : count}
+              </span>
+            )}
+          </Link>
           <button
             onClick={toggleLang}
             className="flex items-center gap-1 px-3 py-2 text-xs tracking-luxury uppercase border border-ceramic-border hover:border-ceramic-gold-matte text-ceramic-ash hover:text-ceramic-graphite transition-colors"

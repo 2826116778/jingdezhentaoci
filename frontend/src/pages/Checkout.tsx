@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import SEO from '../components/common/SEO';
 import { Orders, type CreateOrderInput } from '../api';
-import { useApp } from '../context/AppContext';
+import { useApp, useCart } from '../context/AppContext';
 import { copyText, secondsToMMSS, truncateTxHash } from '../utils';
 import type { CartItem, CheckoutDraft, ContactInfo, OrderListItem, OrderSummary, OrderType } from '../types';
 
@@ -33,6 +33,7 @@ const Checkout: React.FC = () => {
   const nav = useNavigate();
   const params = useParams<{ orderNo?: string }>();
   const { showToast } = useApp();
+  const { clear: clearCart } = useCart();
 
   const [draft, setDraft] = useState<CheckoutDraft>(() => readDraft());
   const [contact, setContact] = useState<ContactInfo>(() => ({ ...readDraft().contactInfo }));
@@ -178,6 +179,7 @@ const Checkout: React.FC = () => {
       };
       const r = (await Orders.create(input)) as OrderSummary;
       setOrder(r);
+      clearCart(); // 下单成功 → 清空购物车（localStorage 同步清除）
       setStep('placed');
       setPollTimer(PAY_WINDOW_SEC);
       // 提交成功 → 替换浏览器地址为 /checkout/:orderNo，刷新不丢

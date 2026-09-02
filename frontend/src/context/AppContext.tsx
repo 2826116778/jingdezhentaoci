@@ -11,7 +11,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
-import type { Lang, Admin, ToastOptions } from '../types';
+import type { Lang, Admin, ToastOptions, CartItem } from '../types';
 import { Auth as AuthApi } from '../api';
 
 // ===================== Toast =====================
@@ -152,5 +152,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export function useAuth() {
   const ctx = useContext(AuthCtx);
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+}
+
+// ===================== Cart Context =====================
+interface CartCtxValue {
+  items: CartItem[];
+  count: number;       // 总件数（sum qty）
+  total: number;       // 总金额（USD）
+  add: (item: Omit<CartItem, 'qty'>, qty?: number) => void;
+  updateQty: (productId: string, qty: number) => void;
+  remove: (productId: string) => void;
+  clear: () => void;
+  setItems: (items: CartItem[]) => void;
+}
+
+const CART_KEY = 'luxeceramics.cart';
+const CartCtx = createContext<CartCtxValue | undefined>(undefined);
+
+export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [items, setItemsState] = useState<CartItem[]>(() => {
+    if (typeof localStorage === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(items)); } catch { /* ignore */ }
+  }, [items]);
+
+  const add = useCallback((item: Omit<CartItem, 'qty'>, qty = 1) => {
+    setItemsState(list => {
+      const existing = list.find(i => i.productId === item.productId);
+      if (existing) {
+        return list.map(i => i.productId === item.productId ? { ...i, qty: i.qty + qty } : i);
+      }
+      return [...list, { ...item, qty }];
+    });
+  }, []);
+
+  const updateQty = useCallback((productId: string, qty: number) => {
+    setItemsState(list => list.map(i =>
+      i.productId === productId ? { ...i, qty: Math.max(1, qty) } : i
+    ));
+  }, []);
+
+  const remove = useCallback((productId: string) => {
+    setItemsState(list => list.filter(i => i.productId !== productId));
+  }, []);
+
+  const clear = useCallback(() => setItemsState([]), []);
+  const setItems = useCallback((newItems: CartItem[]) => setItemsState(newItems), []);
+
+  const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);
+  const total = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
+
+  const value = useMemo<CartCtxValue>(() => ({
+    items, count, total, add, updateQty, remove, clear, setItems,
+  }), [items, count, total, add, updateQty, remove, clear, setItems]);
+
+  return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
+};
+
+export function useCart() {
+  const ctx = useContext(CartCtx);
+  if (!ctx) throw new Error('useCart must be used inside CartProvider');
   return ctx;
 }

@@ -25,6 +25,8 @@ export interface CartItem {
   price: number;
   qty: number;
   image?: string;
+  sku?: string;
+  moq?: number;
 }
 export interface ContactInfo {
   name?: string;

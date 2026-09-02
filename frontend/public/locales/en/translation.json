@@ -220,6 +220,23 @@
     "required": "This field is required",
     "invalid_email": "Please enter a valid email"
   },
+  "cart": {
+    "title": "Shopping Cart",
+    "sub": "Review your selected luxury porcelain items before checkout.",
+    "empty": "Your cart is empty",
+    "empty_hint": "Browse our collection and add your favorite pieces.",
+    "browse": "Browse Products",
+    "add": "Add to Cart",
+    "added": "Added to cart",
+    "subtotal": "Subtotal",
+    "clear": "Clear Cart",
+    "continue_shopping": "Continue Shopping",
+    "summary": "Order Summary",
+    "items_count": "Items",
+    "total": "Total",
+    "checkout": "Proceed to Checkout",
+    "secure_pay": "Secure USDT-TRC20 payment · HTTPS encrypted"
+  },
   "checkout": {
     "title": "Complete Your Order",
     "empty_title": "Your cart is empty",
