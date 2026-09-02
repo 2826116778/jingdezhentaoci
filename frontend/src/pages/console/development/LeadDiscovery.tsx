@@ -282,6 +282,17 @@ const CampaignRow: React.FC<{ c: ConsoleLeadCampaign }> = ({ c }) => {
   );
 };
 
+// 将任意日期值转为 <input type="date"> 需要的 YYYY-MM-DD 字符串（使用本地时区，避免 UTC 偏移）
+function toDateInput(d?: string | Date | null): string {
+  if (!d) return '';
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // ----- Campaign Create Modal -----
 const CampaignCreateModal: React.FC<{ onClose: () => void; onSaved: (c: ConsoleLeadCampaign) => void }> = ({ onClose, onSaved }) => {
   const { showToast } = useApp();
@@ -391,8 +402,8 @@ const CampaignCreateModal: React.FC<{ onClose: () => void; onSaved: (c: ConsoleL
             <Grid>
               <FieldNumber label="Target Lead Count" value={form.targetLeadCount ?? 50} onChange={(v) => set('targetLeadCount', v)} />
               <SelectField label="Status" value={form.status || 'DRAFT'} onChange={(v) => set('status', v as any)} options={[...CAMPAIGN_STATUSES]} />
-              <FieldDate label="Start Date" value={form.startDate?.toString().slice(0, 10) || ''} onChange={(v) => set('startDate', v ? new Date(v) : (undefined as any))} />
-              <FieldDate label="End Date" value={form.endDate?.toString().slice(0, 10) || ''} onChange={(v) => set('endDate', v ? new Date(v) : (undefined as any))} />
+              <FieldDate label="Start Date" value={toDateInput(form.startDate)} onChange={(v) => set('startDate', v || undefined)} />
+              <FieldDate label="End Date" value={toDateInput(form.endDate)} onChange={(v) => set('endDate', v || undefined)} />
             </Grid>
           </Section>
 
