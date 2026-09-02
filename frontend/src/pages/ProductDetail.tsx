@@ -66,8 +66,8 @@ const ProductDetail: React.FC = () => {
   const descL = lang === 'ar' ? product.descAr : product.descEn;
   const careL = lang === 'ar' ? product.careAr : product.careEn;
   const shipL = lang === 'ar' ? product.shippingNoteAr : product.shippingNoteEn;
-  const images = [...product.images];
-  const allImgs = [...images, ...product.detailImages];
+  const images = [...(product.images || [])];
+  const allImgs = [...images, ...(product.detailImages || [])];
 
   // 放大镜：mouseMove 换算 %
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {

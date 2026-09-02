@@ -107,6 +107,8 @@ const Inquiries: React.FC = () => {
             const customerId = i.customerId ? String(i.customerId) : window.prompt('Customer ID (optional):', '') || undefined;
             const amt = i.estimatedValue ? String(i.estimatedValue) : window.prompt('Quote total amount (USD):', '1000');
             if (!amt) return;
+            const amtNum = Number(amt);
+            if (isNaN(amtNum) || amtNum <= 0) return showToast({ type: 'error', text: 'Invalid amount' });
             Console.createQuote({
               customerId,
               inquiryId: String(i._id || i.id),

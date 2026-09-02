@@ -27,7 +27,7 @@ export const ProductCard: React.FC<Props> = ({ product }) => {
       {/* 图片 */}
       <Link to={`/products/${product._id}`} className="block overflow-hidden relative aspect-[4/3] bg-ceramic-pearl">
         <img
-          src={product.images[0]}
+          src={product.images?.[0] || ''}
           alt={name}
           loading="lazy"
           decoding="async"
