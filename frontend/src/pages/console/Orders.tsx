@@ -38,7 +38,7 @@ const COLUMNS: Column<ConsoleOrder>[] = [
   { key: 'items', label: 'Items', width: '9%',
     render: (o) => <span className="text-[12px] text-ceramic-graphite flex items-center gap-1"><Package size={12} className="text-ceramic-ash" />{o.items?.length || 0}</span> },
   { key: 'totalAmount', label: 'Amount (USD)', width: '11%',
-    render: (o) => <span className="font-semibold text-ceramic-graphite">${(o.totalAmount || o.usdtAmount || 0).toLocaleString()}</span> },
+    render: (o) => <span className="font-semibold text-ceramic-graphite">${(o.totalAmount || o.usdtAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> },
   { key: 'paymentStatus', label: 'Payment', width: '10%',
     render: (o) => <PaymentChip s={o.paymentStatus} /> },
   { key: 'relations', label: 'CRM Link', width: '10%',
@@ -51,7 +51,7 @@ const COLUMNS: Column<ConsoleOrder>[] = [
       </div>
     ) },
   { key: 'createdAt', label: 'Created', width: '10%',
-    render: (o) => o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '' },
+    render: (o) => o.createdAt ? new Date(o.createdAt).toLocaleString() : '' },
 ];
 
 function PaymentChip({ s }: { s: string }) {
@@ -104,6 +104,12 @@ const Orders: React.FC = () => {
   const saveItems = async () => {
     if (!editing) return;
     if (!items.length) return showToast({ type: 'error', text: 'Items cannot be empty' });
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (!String(it.name || '').trim()) return showToast({ type: 'error', text: `Item ${i + 1}: name is required` });
+      if (!(Number(it.price) > 0)) return showToast({ type: 'error', text: `Item ${i + 1}: price must be greater than 0` });
+      if (!(Number(it.qty) >= 1)) return showToast({ type: 'error', text: `Item ${i + 1}: qty must be at least 1` });
+    }
     setSaving(true);
     try {
       await OrdersApi.updateItems(String(editing._id || (editing as any).id), items);
@@ -134,7 +140,10 @@ const Orders: React.FC = () => {
           const ns = window.prompt(`Set Payment Status for ${row.orderNo || 'Order'} (pending/paid/expired/failed/refunded/cancelled):`, row.paymentStatus);
           if (!ns) return;
           Console.updateOrder(String(row._id || row.id), { paymentStatus: ns.toLowerCase() as any })
-            .then(() => showToast({ type: 'success', text: 'Order payment status updated' }))
+            .then(() => {
+              showToast({ type: 'success', text: 'Order payment status updated' });
+              setTimeout(() => window.location.reload(), 800);
+            })
             .catch((e: any) => showToast({ type: 'error', text: e?.message || 'Update failed' }));
         }}
       />
