@@ -1199,6 +1199,32 @@ router.patch('/orders/:id', async (req: AuthRequest, res) => {
   } catch (e: any) { fail(res, 400, 400, e?.message || 'Update failed'); }
 });
 
+/**
+ * DELETE /console/orders/:id — 删除订单（仅 superadmin，拒绝 paid 订单）
+ * 路由设计：与 GET/PATCH 一致，支持 _id 或 orderNo；付费订单保留审计链路，
+ *   应改用 PATCH /:id status=refunded/cancelled 而非物理删除。
+ */
+router.delete('/orders/:id', async (req: AuthRequest, res) => {
+  // 1. 仅 superadmin 可调用
+  if (req.admin?.role !== 'superadmin') return fail(res, 403, 403, 'Superadmin role required');
+  // 2. 解析 id 或 orderNo
+  const idOrNo = req.params.id;
+  const base: FilterQuery<IOrder> = isValidObjectId(idOrNo)
+    ? { _id: toId(idOrNo)! } as any
+    : { orderNo: idOrNo };
+  const doc = await Order.findOne(base);
+  if (!doc) return fail(res, 404, 404, 'Not found');
+  // 3. 拒绝删除已支付订单（财务审计）
+  if (doc.paymentStatus === 'paid') {
+    return fail(res, 400, 400, 'Cannot delete paid order, use refunded/cancelled status instead');
+  }
+  // 4. 物理删除
+  const orderNo = doc.orderNo;
+  const oid = String(doc._id);
+  await doc.deleteOne();
+  ok(res, { deleted: true, _id: oid, orderNo });
+});
+
 // ========================================================================
 //  12. Analytics overview（真实聚合，避免空数组占位以外的造假）
 // ========================================================================
