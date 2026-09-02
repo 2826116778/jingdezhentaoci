@@ -13,6 +13,7 @@
 import { Router } from 'express';
 import QRCode from 'qrcode';
 import Order, { IOrder, OrderItem, ContactInfo } from '../models/Order';
+import { Product } from '../models/Product';
 import { env } from '../config/env';
 import { authJWT } from '../middleware/authJWT';
 import { success, fail } from '../utils/response';
@@ -84,9 +85,37 @@ router.post('/orders', async (req, res, next) => {
       }
     }
 
-    const total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+    let total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
     if (!(total > 0)) return fail(res, '订单总额必须大于 0');
-    const usdtAmount = +(total * env.USD_TO_USDT_RATE).toFixed(6);
+    let usdtAmount = +(total * env.USD_TO_USDT_RATE).toFixed(6);
+
+    // 价格防篡改：对所有带 productId 的 item，按 productId 批量反查 Product，
+    // 用 Product.priceMax（前端购物车来源）覆盖客户端传入的 price/name/image；
+    // productId 非法或商品不存在 → 拒绝下单；无 productId 的 OEM/定制询价项保留客户端价。
+    const pidRegex = /^[0-9a-fA-F]{24}$/;
+    const productIds = items
+      .map(it => String(it.productId || '').trim())
+      .filter((id) => !!id && pidRegex.test(id));
+    const productMap = new Map<string, { nameEn: string; priceMax: number; images?: string[] }>();
+    if (productIds.length) {
+      const docs = await Product.find({ _id: { $in: productIds } }).lean();
+      for (const p of docs) productMap.set(String(p._id), { nameEn: p.nameEn, priceMax: p.priceMax, images: p.images });
+    }
+    for (const it of items) {
+      const pid = String(it.productId || '').trim();
+      if (!pid) continue; // 无 productId：OEM/定制询价项，保留客户端价
+      if (!pidRegex.test(pid)) return fail(res, `商品 ID 非法：${pid}`);
+      const p = productMap.get(pid);
+      if (!p) return fail(res, `商品不存在或已下架：${it.name || pid}`);
+      // 用权威价覆盖客户端传入的 price，防止低价篡改
+      it.price = p.priceMax;
+      it.name = p.nameEn || it.name;
+      if (!it.image && p.images?.[0]) it.image = p.images[0];
+    }
+    // 反查后重新计算 total 与 usdtAmount（覆盖上面的初算值，确保以权威价为准）
+    total = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+    if (!(total > 0)) return fail(res, '订单总额必须大于 0');
+    usdtAmount = +(total * env.USD_TO_USDT_RATE).toFixed(6);
 
     // 构造 dealerInfo（仅 dealer 类型时存）
     const dealerInfoObj = orderType === 'dealer' ? {
@@ -180,13 +209,16 @@ router.get('/orders/:orderNo', async (req, res, next) => {
     const displayStatus = isExpired ? 'expired' : order.paymentStatus;
 
     return success(res, {
+      _id: order._id,
       orderNo: order.orderNo,
       orderType: order.orderType,
       items: order.items,
       totalAmount: order.totalAmount,
+      amount: order.usdtAmount,
       usdtAmount: order.usdtAmount,
       usdtTolerance: order.usdtTolerance,
       walletAddress: order.walletAddress,
+      merchantAddress: order.walletAddress,
       tronNetwork: order.tronNetwork,
       usdtContractAddress: order.usdtContractAddress,
       orderExpireAt: order.orderExpireAt,
@@ -196,8 +228,10 @@ router.get('/orders/:orderNo', async (req, res, next) => {
       customDemand: order.customDemand,
       paymentStatus: displayStatus,
       confirmations: order.blockConfirmations,
+      blockConfirmations: order.blockConfirmations,
       paidAt: order.paidAt,
       expiredAt: order.expiredAt,
+      txHash: order.txHash,
       txHashShort: order.txHash ? order.txHash.slice(0, 12) + '…' : undefined,
       lastCheckedAt: order.lastCheckedAt,
       ttlSeconds: Math.ceil(ttlMs / 1000),

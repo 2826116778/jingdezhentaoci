@@ -8,7 +8,7 @@
  */
 import { Schema, model, Document, Types } from 'mongoose';
 
-export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'failed' | 'refunded' | 'cancelled';
 export type OrderType = 'retail' | 'dealer';
 
 export interface OrderItem {
@@ -134,7 +134,7 @@ const OrderSchema = new Schema<IOrder>({
   paymentStatus: {
     type: String,
     required: true,
-    enum: ['pending', 'paid', 'expired', 'failed', 'refunded'],
+    enum: ['pending', 'paid', 'expired', 'failed', 'refunded', 'cancelled'],
     default: 'pending',
     index: true,
   },
