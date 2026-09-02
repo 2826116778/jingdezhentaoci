@@ -16,12 +16,12 @@ export default defineConfig({
     proxy: {
       // 前端调用 /api/** → 转发给后端 Express@5000
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
       // 后端上传静态资源代理（/uploads/**）
       '/uploads': {
-        target: 'http://127.0.0.1:5000',
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
     },
