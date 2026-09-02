@@ -1145,6 +1145,21 @@ router.get('/orders', async (req: AuthRequest, res) => {
   if (q.inquiryId)  base.inquiryId = toId(q.inquiryId as string);
   if (q.orderNo)    base.orderNo = { $regex: q.orderNo as string, $options: 'i' };
   if (q.paymentStatus) base.paymentStatus = q.paymentStatus as any;
+  if (q.search) {
+    const s = (q.search as string).trim();
+    if (s) {
+      // 通用搜索：按 contactInfo 模糊匹配（email/phone/whatsapp/company/name）
+      // 用 $and 合并，避免覆盖 readScope 的 $or（非超管权限过滤）
+      const searchOr = { $or: [
+        { 'contactInfo.email':    { $regex: s, $options: 'i' } },
+        { 'contactInfo.phone':    { $regex: s, $options: 'i' } },
+        { 'contactInfo.whatsapp': { $regex: s, $options: 'i' } },
+        { 'contactInfo.company':  { $regex: s, $options: 'i' } },
+        { 'contactInfo.name':     { $regex: s, $options: 'i' } },
+      ]};
+      base.$and = base.$and ? [...(base.$and as any[]), searchOr] : [searchOr];
+    }
+  }
   ok(res, await paginate<IOrder>(Order, base, page, pageSize, skip));
 });
 router.get('/orders/:id', async (req: AuthRequest, res) => {

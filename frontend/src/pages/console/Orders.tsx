@@ -139,7 +139,10 @@ const Orders: React.FC = () => {
         onEdit={(row) => {
           const ns = window.prompt(`Set Payment Status for ${row.orderNo || 'Order'} (pending/paid/expired/failed/refunded/cancelled):`, row.paymentStatus);
           if (!ns) return;
-          Console.updateOrder(String(row._id || row.id), { paymentStatus: ns.toLowerCase() as any })
+          const valid = ['pending','paid','expired','failed','refunded','cancelled'];
+          const status = ns.toLowerCase().trim();
+          if (!valid.includes(status)) return showToast({ type: 'error', text: `Invalid status. Valid: ${valid.join(', ')}` });
+          Console.updateOrder(String(row._id || row.id), { paymentStatus: status as any })
             .then(() => {
               showToast({ type: 'success', text: 'Order payment status updated' });
               setTimeout(() => window.location.reload(), 800);
