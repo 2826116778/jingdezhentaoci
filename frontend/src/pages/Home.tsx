@@ -26,7 +26,7 @@ const FACT_STATS = [
 
 const Home: React.FC = () => {
   const { t } = useTranslation();
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   const [slideIdx, setSlideIdx] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
@@ -44,6 +44,8 @@ const Home: React.FC = () => {
         const [ps, cs] = await Promise.all([Products.featured(), Cases.featured()]);
         setProducts(ps || []);
         setCases(cs || []);
+      } catch (e: any) {
+        showToast({ type: 'error', text: e?.message || 'Failed to load content' });
       } finally { setLoading(false); }
     })();
   }, []);
