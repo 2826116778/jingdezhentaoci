@@ -180,6 +180,7 @@ const Checkout: React.FC = () => {
       const r = (await Orders.create(input)) as OrderSummary;
       setOrder(r);
       clearCart(); // 下单成功 → 清空购物车（localStorage 同步清除）
+      sessionStorage.removeItem('luxe.checkoutDraft'); // 清理草稿，避免回 /checkout 读到已下单的旧商品
       setStep('placed');
       setPollTimer(PAY_WINDOW_SEC);
       // 提交成功 → 替换浏览器地址为 /checkout/:orderNo，刷新不丢
